@@ -4,22 +4,19 @@ Created on Feb 4, 2012
 @author: Tim Biggs
 '''
 
-import asynchat
+import asyncore
 
 BUFSIZE = 1400
 
-class ChatHandler(asynchat.async_chat):
+class ChatHandler(asyncore.dispatcher):
     '''
     Handler for the ChatServer module -- here's where all the fun is
     '''
     
     def __init__(self, sock):
-        asynchat.async_chat.__init__(self, sock=sock)
-        self.set_terminator('\r\n\r\n')
-    
-    def collect_incoming_data(self, data):
+        asyncore.dispatcher.__init__(self, sock=sock)
+        
+    def handle_read(self):
+        data = self.recv(BUFSIZE)
         if data:
-            self.push(data.upper())
-            
-    def found_terminator(self):
-        self.close()
+            self.send(data)
