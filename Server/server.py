@@ -6,11 +6,23 @@ Created on Feb 4, 2012
 
 import asyncore
 import socket
-import handlers
+import requesthandler
+from common import BUFSIZE
+
+class ChatHandler(asyncore.dispatcher):
+    '''
+    Handler for the ChatServer module -- 1 loop instance per client
+    '''
+    
+    def __init__(self, sock):
+        asyncore.dispatcher.__init__(self, sock=sock)
+        
+    def handle_read(self):
+        self.send(requesthandler.handle_request(self.recv(BUFSIZE)))
 
 class ChatServer(asyncore.dispatcher):
     '''
-    Main server module -- just kinda works like a server
+    Main server module -- should only be 1 instance in the loop
     '''
 
     def __init__(self, host, port):
@@ -30,4 +42,4 @@ class ChatServer(asyncore.dispatcher):
         else:
             sock,addr = pair
             print 'Incoming connection from %s' % repr(addr)
-            handlers.ChatHandler(sock)
+            ChatHandler(sock) # adds itself to the server loop automatically
