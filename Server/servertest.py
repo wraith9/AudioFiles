@@ -16,7 +16,7 @@ class Test(unittest.TestCase):
         a = socket.create_connection(('localhost', 9999))
         a.send(structlib.padToSize(struct.pack("!IBH20s20s", 0, 1, 40, "makarth", "test"), self.maxsize))
         data = a.recv(self.maxsize)
-        assert data == structlib.padToSize(struct.pack("!IBH", 0, 0x2, 0), self.maxsize)
+        assert data == structlib.padToSize(struct.pack("!IBH20sI", 1, 0x2, 24, "wally", 2), self.maxsize)
         a.close()
         
     def testInvalidLogin(self):

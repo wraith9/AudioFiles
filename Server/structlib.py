@@ -8,6 +8,7 @@ from struct import Struct, error
 
 pktFormat = Struct('!IBH')
 clFormat = Struct('!20s20s')
+flEntryFormat = Struct("!20sI")
 
 def padToSize(string, maxSize):
     return string + ''.zfill(maxSize - len(string))
