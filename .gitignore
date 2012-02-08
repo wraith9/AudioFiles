@@ -1,2 +1,3 @@
 .metadata/*
 Server/*.pyc
+Server/*.db

@@ -6,7 +6,7 @@ Created on Feb 4, 2012
 
 from struct import Struct, error
 
-pktFormat = Struct('!BH')
+pktFormat = Struct('!IBH')
 clFormat = Struct('!20s20s')
 
 def padToSize(string, maxSize):

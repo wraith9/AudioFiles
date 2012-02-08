@@ -5,25 +5,26 @@ Created on Feb 4, 2012
 '''
 import unittest
 import socket
+import struct
 import structlib
 
 class Test(unittest.TestCase):
-    maxsize = 1400
+    maxsize = 1400 + struct.calcsize("!IBH")
 
     # TODO: Update tests as needed
     def testValidLogin(self):
         a = socket.create_connection(('localhost', 9999))
-        a.send(structlib.padToSize('\x01\x00(a\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00b\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00\x00', self.maxsize))
+        a.send(structlib.padToSize(struct.pack("!IBH20s20s", 0, 1, 40, "makarth", "test"), self.maxsize))
         data = a.recv(self.maxsize)
-        assert data == structlib.padToSize('\x02\x00\x00', self.maxsize)
+        assert data == structlib.padToSize(struct.pack("!IBH", 0, 0x2, 0), self.maxsize)
         a.close()
         
     def testInvalidLogin(self):
         a = socket.create_connection(('localhost', 9999))
-        a.send(structlib.padToSize('\x01\x00(ab', self.maxsize))
+        a.send(structlib.padToSize(struct.pack("!IBH20s20s", 0, 1, 40, "makarth", "badpw"), self.maxsize))
         data = a.recv(self.maxsize)
-        assert data == structlib.padToSize('\x19\x00\x00', self.maxsize)
+        assert data == structlib.padToSize(struct.pack("!IBH", 0, 0x19, 0), self.maxsize)
+        a.close()
 
 if __name__ == "__main__":
-    #import sys;sys.argv = ['', 'Test.testName']
     unittest.main()

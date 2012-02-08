@@ -4,7 +4,9 @@ Created on Feb 4, 2012
 @author: Tim Biggs
 '''
 
-BUFSIZE = 1400
+from structlib import pktFormat
+
+BUFSIZE = 1400 + pktFormat.size
 
 r_login = 0x1
 r_login_good = 0x2
