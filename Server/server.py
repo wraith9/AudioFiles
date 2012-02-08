@@ -7,7 +7,7 @@ Created on Feb 4, 2012
 import asyncore
 import socket
 from requesthandler import RequestHandler
-from common import BUFSIZE, onlineClients
+from common import BUFSIZE
 
 class ChatHandler(asyncore.dispatcher):
     '''

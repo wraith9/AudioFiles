@@ -8,7 +8,6 @@ from structlib import *
 from common import *
 import hashlib
 import dao
-import asyncore
 
 dbdao = dao.dao()
 
@@ -59,6 +58,9 @@ class RequestHandler:
         (userID, username, pw_hash, pw_salt) = info
         pw = pw.replace(chr(0), '')
         digest = hashlib.sha512(pw + pw_salt).hexdigest()
+        # TODO: stop a client from logging in twice
+        # if userID in onlineClients:
+        #     return loginDuplicateAck
         if pw_hash == digest:
             self.userID = userID
             onlineClients[userID] = self.addr
@@ -66,6 +68,7 @@ class RequestHandler:
         
         return loginInvalidAck
     
+    # TODO: Add more packet handlers
     def handle_request(self, req):
         try:
             (_, pType, _), data = decode(pktFormat, req)
