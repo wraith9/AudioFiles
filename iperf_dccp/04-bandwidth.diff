@@ -1,0 +1,49 @@
+Enable bandwidth option for DCCP.
+
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+diff --git a/src/Settings.cpp b/src/Settings.cpp
+index 7d03f53..6835017 100644
+--- a/src/Settings.cpp
++++ b/src/Settings.cpp
+@@ -344,26 +344,28 @@ void Settings_Interpret( char option, const char *optarg, thread_Settings *mExtS
+         case '1': // Single Client
+             setSingleClient( mExtSettings );
+             break;
+-        case 'b': // UDP bandwidth
+-            if ( !isPacketOriented( mExtSettings ) ) {
+-                fprintf( stderr, warn_implied_udp, option );
+-		mExtSettings->mProtocol = kUDP;
+-            }
+ 
++        case 'b': /*
++                   * This sets packet-oriented mode. The optional
++                   * argument sets datagram bandwidth (as before).
++                   * If not given, a default bandwith is used.
++		   * FIXME - I think we shouldn't enable this for TCP
++		   * also not sure about other code deleted
++                   */
+             if ( mExtSettings->mThreadMode != kMode_Client ) {
+                 fprintf( stderr, warn_invalid_server_option, option );
+                 break;
+             }
+ 
+-            Settings_GetLowerCaseArg(optarg,outarg);
+-            mExtSettings->mDgramRate = byte_atoi(outarg);
++            setPacketOriented(mExtSettings);
+ 
+-            // if -l has already been processed, mBufLenSet is true
+-            // so don't overwrite that value.
+-            if ( !isBuflenSet( mExtSettings ) ) {
+-                mExtSettings->mBufLen = kDefault_UDPBufLen;
+-            }
++            if (optarg) {
++                Settings_GetLowerCaseArg(optarg, outarg);
++                mExtSettings->mDgramRate = byte_atoi(outarg);
++            } else
++                mExtSettings->mDgramRate = kDefault_DgramRate;
+             break;
++ 
+ 
+         case 'c': // client mode w/ server host to connect to
+             mExtSettings->mHost = new char[ strlen( optarg ) + 1 ];

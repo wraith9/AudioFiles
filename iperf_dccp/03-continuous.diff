@@ -1,0 +1,42 @@
+This patch makes iperf run continuously if -t 0 is used as a parameter.
+
+(Well it makes it run for 7 years which is long enough for my needs)
+
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+diff --git a/src/Client.cpp b/src/Client.cpp
+index dd10601..a87c5ed 100644
+--- a/src/Client.cpp
++++ b/src/Client.cpp
+@@ -137,7 +137,10 @@ void Client::Run( void ) {
+     // setup termination variables
+     if ( mMode_Time ) {
+         mEndTime.setnow();
+-        mEndTime.add( mSettings->mAmount / 100.0 );
++	if (mSettings->mAmount == 0)
++		mEndTime.add(2209032.0); // 7 years - i.e. continuous
++	else
++	        mEndTime.add( mSettings->mAmount / 100.0 );
+     }
+ 
+     if ( isPacketOriented( mSettings ) ) {
+diff --git a/src/Locale.c b/src/Locale.c
+index e871be8..4d74d5f 100644
+--- a/src/Locale.c
++++ b/src/Locale.c
+@@ -107,6 +107,7 @@ Client specific:\n\
+   -n, --num       #[KM]    number of bytes to transmit (instead of -t)\n\
+   -r, --tradeoff           Do a bidirectional test individually\n\
+   -t, --time      #        time in seconds to transmit for (default 10 secs)\n\
++                           or 0 for continuous\n\
+   -F, --fileinput <name>   input the data to be transmitted from a file\n\
+   -I, --stdin              input the data to be transmitted from stdin\n\
+   -L, --listenport #       port to recieve bidirectional tests back on\n\
+@@ -159,6 +160,7 @@ Client specific:\n\
+   -n, --num       #[KM]    number of bytes to transmit (instead of -t)\n\
+   -r, --tradeoff           Do a bidirectional test individually\n\
+   -t, --time      #        time in seconds to transmit for (default 10 secs)\n\
++                           or 0 for continuous\n\
+   -F, --fileinput <name>   input the data to be transmitted from a file\n\
+   -I, --stdin              input the data to be transmitted from stdin\n\
+   -L, --listenport #       port to recieve bidirectional tests back on\n\

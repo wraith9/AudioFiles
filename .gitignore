@@ -1,3 +1,4 @@
 .metadata/*
 Server/*.pyc
 Server/*.db
+Client/*.o

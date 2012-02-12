@@ -21,14 +21,18 @@
 #include "DCCP.h"
 #include "TCP.h"
 
+#include <string>
+
+using namespace std;
+
 class Server {
    public:
-      Server();
-      Server(enum PROTO_TYPE type);
+      Server(enum PROTO_TYPE type, uint32_t theUID);
       ~Server();
 
-      int waitForClients(int seconds);
+      int waitForRequests(int seconds);
       void acceptNewCall();
+      void makeCall(uint32_t friendId);
       void endCall();
       
       char friendsName[1024];
@@ -36,12 +40,19 @@ class Server {
       uint32_t callerID;
 
    private:
-      void startChat();
-      
+      void startChat(TransProtocol *commProtocol);
+      uint16_t getFriendPort(uint32_t friendId);
+      string getHostname(uint32_t friendId);
+      void connectToFriend();
+     
       uint32_t myUID;
-      TransProtocol *tProtocol;
+      TransProtocol *serverProtocol;
+      TransProtocol *clientProtocol;
       boost::shared_ptr<boost::thread> m_thread;
 
+      // temporary variables till be get friend db
+      uint16_t friendPort;
+      string theHost;
 };
 
 #endif

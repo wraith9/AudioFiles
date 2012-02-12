@@ -12,9 +12,13 @@
 
 #include "TransProtocol.h"
 
+#include <string>
+
+using namespace std;
+
 class TCP : public TransProtocol {
    public:
-      TCP();
+      TCP(enum PROTO_IO protoIO, string hostname, uint16_t portNum);
       ~TCP();
 
       int sendPacket(const void *buf, size_t len, int flags);
@@ -26,6 +30,8 @@ class TCP : public TransProtocol {
 
    protected:
       int openSocket();
+      void initServer(uint16_t portNum);
+      void initClient(string hostname, uint16_t portNum);
 
 };
 

@@ -10,14 +10,23 @@
 #include "TCP.h"
 
 #include <iostream>
+#include <string.h>
 
-TCP::TCP() {
+TCP::TCP(enum PROTO_IO protoIO, string hostname, uint16_t portNum) {
 
    socket_num = -1;
    client_socket = -1;
    temp_socket = -1;
 
    openSocket();
+   if (protoIO == SERVER_IO)
+      initServer(portNum);
+   else if (protoIO == CLIENT_IO)
+      initClient(hostname, portNum);
+   else {
+      std::cerr << "Invalid protocol I/O: " << protoIO << std::endl;
+      exit(EXIT_FAILURE);
+   }
 }
 
 TCP::~TCP() {
@@ -32,7 +41,6 @@ TCP::~TCP() {
  */
 int TCP::openSocket() {
    int reuseport;
-   struct sockaddr_in address;
 
    if ((socket_num = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
       perror("socket");
@@ -45,6 +53,12 @@ int TCP::openSocket() {
       perror("setsockopt");
       return -1;
    }
+
+   return socket_num;
+}
+
+void TCP::initServer(uint16_t portNum) {
+   struct sockaddr_in address;
 
    /* name the socket */
    address.sin_family = AF_INET;
@@ -64,7 +78,28 @@ int TCP::openSocket() {
       exit(EXIT_FAILURE);
    }
 
-   return socket_num;
+}
+
+void TCP::initClient(string hostname, uint16_t portNum) {
+   struct hostent *theHost;
+   struct sockaddr_in address;
+   char *hstName;
+
+   hstName = new char[hostname.length()+1];
+   strcpy(hstName, hostname.c_str());
+
+   theHost = gethostbyname(hstName);
+   memcpy(&address.sin_addr, theHost->h_addr, theHost->h_length);
+   address.sin_family = AF_INET;
+   address.sin_port = htons(portNum);
+
+   if (connect(socket_num, (struct sockaddr *) &address, sizeof(address)) < 0) {
+      perror("connect()");
+      exit(EXIT_FAILURE);
+   }
+
+   delete[] hstName; // cleanup after yourself
+
 }
 
 /** Sends a packet over the TCP socket 

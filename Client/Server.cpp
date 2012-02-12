@@ -9,42 +9,39 @@
 #include <string>
 #include <string.h>
 
-/** Server constructor with a DCCP transport protocol */
-Server::Server(): chatting(false), callerID(0) {
-
-   tProtocol = new DCCP();
-}
-
 /** This constructor specifies which transport protocol to use
  * @param type the type of transport protocol, i.e. DCCP, TCP, or UDP
  */
-Server::Server(enum PROTO_TYPE type) : chatting(false), callerID(0) {
+Server::Server(enum PROTO_TYPE type, uint32_t theUID) : chatting(false),
+   callerID(0), myUID(theUID) {
 
-   switch (type) {
-   case DCCP_T:
-      tProtocol = new DCCP();
-      break;
-   case UDP_T:
-      assert(false); //tProtocol = new UDP();
-      break;
-   case TCP_T:
-      tProtocol = new TCP();
-      break;
-   default:
-      assert(false);
+      switch (type) {
+      case DCCP_T:
+         serverProtocol = new DCCP(SERVER_IO, "", 0);
+         break;
+      case UDP_T:
+         assert(false); //tProtocol = new UDP();
+         break;
+      case TCP_T:
+         serverProtocol = new TCP(SERVER_IO, "", 0);
+         break;
+      default:
+         std::cout << "Invalid option: " << type << std::endl;
+         exit(EXIT_FAILURE);
+      }
+
    }
-   
-}
 
 /** Server destructor */
 Server::~Server() {
 
-   delete tProtocol;
+   delete clientProtocol;
+   delete serverProtocol;
 }
 
-int Server::waitForClients(int seconds) {
+int Server::waitForRequests(int seconds) {
 
-   return tProtocol->waitForClients(seconds);
+   return serverProtocol->waitForRequests(seconds);
 }
 
 /** Accepts the new call by starting a calling thread. */
@@ -52,8 +49,8 @@ void Server::acceptNewCall() {
    std::string toAccept = "";
    boost::posix_time::milliseconds noTime(0);
 
-   callerID = tProtocol->getCallerID();
-   if (callerID == 0)
+   callerID = serverProtocol->getCallerID();
+   if (callerID == 0) 
       return;
 
    if (chatting) {
@@ -61,8 +58,8 @@ void Server::acceptNewCall() {
       return;
    }
 
-   // Handle previous threads 
-   if (m_thread) 
+   // Handle previous threads
+   if (m_thread)
       m_thread->join();
 
    std::cout << "\nIncoming call: ";
@@ -70,15 +67,111 @@ void Server::acceptNewCall() {
    std::cout << " wants to chat with you. Accept? (Y/N) ";
    getline(std::cin, toAccept);
    if (toAccept.at(0) == 'N' || toAccept.at(0) == 'n') {
-      tProtocol->ignoreCaller();
+      serverProtocol->ignoreCaller();
       chatting = false;
       callerID = 0;
    } else {
-      tProtocol->answerCall();
-      chatting = true;
+      serverProtocol->answerCall();
       m_thread = boost::shared_ptr<boost::thread>(
-            new boost::thread(boost::bind(&Server::startChat, this)));
+            new boost::thread(boost::bind(&Server::startChat, this, 
+            serverProtocol)));
    }
+}
+
+/** Tries to call a friend
+ * @param friendId the friend to call
+ */
+void Server::makeCall(uint32_t friendId) {
+
+   friendPort = getFriendPort(friendId);
+   theHost = getHostname(friendId);
+
+   if (dynamic_cast<DCCP *>(serverProtocol))
+      clientProtocol = new DCCP(CLIENT_IO, theHost, friendPort);
+   else if (dynamic_cast<TCP *>(serverProtocol))
+      clientProtocol = new TCP(CLIENT_IO, theHost, friendPort);
+   //else if (dynamic_cast<UDP *>(&serverProtocol))
+   //   assert(false);//clientProtocol = new UDP(CLIENT_IO, theHost, friendPort);
+   //else
+   //   assert(false);
+
+   connectToFriend();
+}
+
+void Server::connectToFriend() {
+   packet initPacket;
+   int status;
+
+   cout << "Dialing...";
+
+   initPacket.type = request_chat;
+   initPacket.uid = myUID;
+   for (int i = 0; i < 5; i++) {
+      status = clientProtocol->sendPacket((void *) &initPacket, sizeof(packet),
+            0);
+      if (status < 0) {
+         perror("sendPacket()");
+         return;
+      }
+
+      /* Check if the server responded */
+      if (clientProtocol->waitForResponse(1))
+         break;
+      else if (i == 4) {
+         cout << "No response\n";
+         return;
+      }
+   }
+
+   if (m_thread)
+      m_thread->join();
+
+   m_thread = boost::shared_ptr<boost::thread>(
+         new boost::thread(boost::bind(&Server::startChat, this, 
+         clientProtocol)));
+}
+
+/** Gets the port of the friend you want to chat with
+ *
+ * @param friendId the id of the friend you want to chat with
+ * @return the port of your friend's computer
+ */
+uint16_t Server::getFriendPort(uint32_t friendId) {
+
+   // get the port # from the server db
+
+   // XXX Temporarily ask for it
+   string input = "";
+   uint16_t portNum = -1;
+
+   cout << "Enter the port # of your friend's computer: ";
+
+   getline(std::cin, input);
+   stringstream myStream(input);
+   if (myStream >> portNum)
+      return portNum;
+
+   assert(false);
+}
+
+/** Gets the hostname of the friend you want to chat with
+ *
+ * @param friendId the id of the friend you want to chat with
+ * @return a string containing the hostname of your friend's computer
+ */
+string Server::getHostname(uint32_t friendId) {
+
+   // get the hostname from the server db
+
+
+   // XXX Temporarily ask for the hostname
+   string theHostname = "";
+
+   cout << "Enter the hostname of your friend's computer: ";
+
+   getline(cin, theHostname);
+
+   return theHostname;
 }
 
 /** Stops the current call by ending the calling thread. */
@@ -89,30 +182,42 @@ void Server::endCall() {
 }
 
 /** Start of a new thread -- Accepts an incoming request */
-void Server::startChat() {
-   packet thePacket;
+void Server::startChat(TransProtocol *commProtocol) {
+   packet ourPacket;
+   packet theirPacket;
    int status;
    boost::posix_time::milliseconds sleep_time(50);
 
-   thePacket.uid = myUID;
-   thePacket.type = audio_data;
-   strcpy((char *) thePacket.data, "This data is from the server!!\n\0");
-   thePacket.dlength = strlen((char *) thePacket.data) + 1;
+   chatting = true;
 
-   while (1) {
-      status = tProtocol->sendPacket((void *) &thePacket, sizeof(packet), 0);
-      if (status != sizeof(packet)) {
-         if (status == -1)
-            perror("send()");
-         else if (status == 0) 
-            std::cout << "Call ended.\n";
+   ourPacket.uid = myUID;
+   ourPacket.type = audio_data;
+   strcpy((char *) ourPacket.data, "This data is from the server!!\n\0");
+   ourPacket.dlength = strlen((char *) ourPacket.data) + 1;
+
+   while (true) {
+      if (commProtocol->waitForResponse(0)) {
+         status = commProtocol->recvPacket((void *) &theirPacket, 
+               sizeof(packet), 0);
+         if (status < 0) {
+            perror("recvPacket()");
+            break;
+         }
+
+         if (theirPacket.type == audio_data) 
+            cout << theirPacket.data;
+      }
+
+      status = commProtocol->sendPacket((void *) &ourPacket, sizeof(packet), 0);
+      if (status < 0) {
+         perror("sendPacket()");
          break;
       }
 
-      boost::this_thread::sleep(sleep_time);
+      //boost::this_thread::sleep(sleep_time);
    }
 
-   tProtocol->endCall();
-   std::cerr << "<chatting stopped>\n";
+   cout << "Call ended.\n";
+   commProtocol->endCall();
    chatting = false;
 }

@@ -21,7 +21,13 @@ TransProtocol& TransProtocol::operator=(const TransProtocol &right) {
  * @param seconds the number of seconds to wait for the socket to be ready
  * @return 1 if someone is calling, else 0
  */
-int TransProtocol::waitForClients(int seconds) {
+int TransProtocol::waitForRequests(int seconds) {
 
    return select_call(socket_num, seconds, 0);
+}
+
+
+int TransProtocol::waitForResponse(int seconds) {
+
+   return select_call(client_socket, seconds, 0);
 }

@@ -1,0 +1,294 @@
+Rename UDP stuff to dgram stuff
+
+As per Gerrit's patchset.
+
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+diff --git a/include/Client.hpp b/include/Client.hpp
+index e5d2e29..2d4364d 100644
+--- a/include/Client.hpp
++++ b/include/Client.hpp
+@@ -74,7 +74,7 @@ public:
+     // UDP / TCP
+     void Send( void );
+         
+-    void write_UDP_FIN( );
++    void write_dgram_FIN( );
+ 
+     // client connect
+     void Connect( );
+diff --git a/include/Locale.h b/include/Locale.h
+index 926b47a..cde9108 100644
+--- a/include/Locale.h
++++ b/include/Locale.h
+@@ -94,7 +94,7 @@ extern const char server_datagram_size[];
+ 
+ extern const char tcp_window_size[];
+ 
+-extern const char udp_buffer_size[];
++extern const char dgram_buffer_size[];
+ 
+ extern const char window_default[];
+ 
+diff --git a/include/Server.hpp b/include/Server.hpp
+index c11d54b..75f08c2 100644
+--- a/include/Server.hpp
++++ b/include/Server.hpp
+@@ -71,7 +71,7 @@ public:
+     // accepts connection and receives data
+     void Run( void );
+ 
+-    void write_UDP_AckFIN( );
++    void write_dgram_AckFIN( );
+ 
+     static void Sig_Int( int inSigno );
+ 
+diff --git a/include/Settings.hpp b/include/Settings.hpp
+index ec81dc9..16612c4 100644
+--- a/include/Settings.hpp
++++ b/include/Settings.hpp
+@@ -153,7 +153,7 @@ typedef struct thread_Settings {
+     ReportMode mReportMode;
+     TestMode mMode;                 // -r or -d
+     // Hopefully int64_t's
+-    max_size_t mUDPRate;            // -b or -u
++    max_size_t mDgramRate;          // -b or -u
+     max_size_t mAmount;             // -n or -t
+     // doubles
+     double mInterval;               // -i
+diff --git a/src/Client.cpp b/src/Client.cpp
+index d6324d9..acff6a4 100644
+--- a/src/Client.cpp
++++ b/src/Client.cpp
+@@ -147,7 +147,7 @@ void Client::Run( void ) {
+     
+         // compute delay for bandwidth restriction, constrained to [0,1] seconds 
+         delay_target = (int) ( mSettings->mBufLen * ((kSecs_to_usecs * kBytes_to_Bits) 
+-                                                     / mSettings->mUDPRate) ); 
++                                                     / mSettings->mDgramRate) ); 
+         if ( delay_target < 0  || 
+              delay_target > (int) 1 * kSecs_to_usecs ) {
+             fprintf( stderr, warn_delay_large, delay_target / kSecs_to_usecs ); 
+@@ -253,7 +253,7 @@ void Client::Run( void ) {
+         if ( isMulticast( mSettings ) ) {
+             write( mSettings->mSock, mBuf, mSettings->mBufLen ); 
+         } else {
+-            write_UDP_FIN( ); 
++            write_dgram_FIN( ); 
+         }
+     }
+     DELETE_PTR( reportstruct );
+@@ -335,7 +335,7 @@ void Client::Connect( ) {
+  * acknowledgement datagram is received. 
+  * ------------------------------------------------------------------- */ 
+ 
+-void Client::write_UDP_FIN( ) {
++void Client::write_dgram_FIN( ) {
+     int rc; 
+     fd_set readSet; 
+     struct timeval timeout; 
+@@ -375,4 +375,4 @@ void Client::write_UDP_FIN( ) {
+ 
+     fprintf( stderr, warn_no_ack, mSettings->mSock, count ); 
+ } 
+-// end write_UDP_FIN 
++// end write_dgram_FIN 
+diff --git a/src/Extractor.c b/src/Extractor.c
+index 2571ebf..6a88e55 100644
+--- a/src/Extractor.c
++++ b/src/Extractor.c
+@@ -128,7 +128,7 @@ int Extractor_canRead ( thread_Settings *mSettings ) {
+ 
+ /**
+  * This is used to reduce the read size
+- * Used in UDP transfer to accomodate the
++ * Used in datagram transfer to accomodate the
+  * the header (timestamp)
+  * @arg delta         Size to reduce
+  */
+diff --git a/src/Listener.cpp b/src/Listener.cpp
+index 94e32de..d278f60 100644
+--- a/src/Listener.cpp
++++ b/src/Listener.cpp
+@@ -114,8 +114,8 @@ Listener::~Listener() {
+ /* ------------------------------------------------------------------- 
+  * Listens for connections and starts Servers to handle data. 
+  * For TCP, each accepted connection spawns a Server thread. 
+- * For UDP, handle all data in this thread for Win32 Only, otherwise
+- *          spawn a new Server thread. 
++ * For datagram-oriented protocols, handle all data in this thread for 
++ *          Win32 Only, otherwise spawn a new Server thread. 
+  * ------------------------------------------------------------------- */ 
+ void Listener::Run( void ) {
+ #ifdef WIN32
+@@ -283,7 +283,7 @@ void Listener::Run( void ) {
+ /* -------------------------------------------------------------------
+  * Setup a socket listening on a port.
+  * For TCP, this calls bind() and listen().
+- * For UDP, this just calls bind().
++ * For connectionless protocols, this just calls bind().
+  * If inLocalhost is not null, bind to that address rather than the
+  * wildcard server address, specifying what incoming interface to
+  * accept connections on.
+@@ -418,8 +418,8 @@ void Listener::Accept( thread_Settings *server ) {
+     server->size_peer = sizeof(iperf_sockaddr); 
+     if ( isUDP( server ) ) {
+         /* ------------------------------------------------------------------- 
+-         * Do the equivalent of an accept() call for UDP sockets. This waits 
+-         * on a listening UDP socket until we get a datagram. 
++         * Do the equivalent of an accept() call for datagram sockets.
++	 * This waits on a listening datagram socket until we get a datagram. 
+          * ------------------------------------------------------------------- */
+         int rc;
+         Iperf_ListEntry *exist;
+@@ -432,7 +432,7 @@ void Listener::Accept( thread_Settings *server ) {
+ 
+             Mutex_Lock( &clients_mutex );
+     
+-            // Handle connection for UDP sockets.
++            // Handle connection for datagram sockets.
+             exist = Iperf_present( &server->peer, clients);
+             datagramID = ntohl( ((UDP_datagram*) mBuf)->id ); 
+             if ( exist == NULL && datagramID >= 0 ) {
+@@ -499,7 +499,7 @@ void Listener::UDPSingleServer( ) {
+             }
+         
+         
+-            // Handle connection for UDP sockets.
++            // Handle connection for datagram-based sockets.
+             exist = Iperf_present( &server->peer, clients);
+             datagramID = ntohl( ((UDP_datagram*) mBuf)->id ); 
+             if ( datagramID >= 0 ) {
+diff --git a/src/Locale.c b/src/Locale.c
+index d6fb1f8..0436567 100644
+--- a/src/Locale.c
++++ b/src/Locale.c
+@@ -100,7 +100,7 @@ Server specific:\n\
+ const char usage_long2[] = "\
+ \n\
+ Client specific:\n\
+-  -b, --bandwidth #[KM]    for UDP, bandwidth to send at in bits/sec\n\
++  -b, --bandwidth #[KM]    for UDP/DCCP, bandwidth to send at in bits/sec\n\
+                            (default 1 Mbit/sec, implies -u)\n\
+   -c, --client    <host>   run in client mode, connecting to <host>\n\
+   -d, --dualtest           Do a bidirectional test simultaneously\n\
+@@ -219,8 +219,8 @@ const char server_datagram_size[] =
+ const char tcp_window_size[] =
+ "TCP window size";
+ 
+-const char udp_buffer_size[] =
+-"UDP buffer size";
++const char dgram_buffer_size[] =
++"datagram buffer size";
+ 
+ const char window_default[] =
+ "(default)";
+diff --git a/src/ReportDefault.c b/src/ReportDefault.c
+index 7944e03..aa4f9cf 100644
+--- a/src/ReportDefault.c
++++ b/src/ReportDefault.c
+@@ -179,7 +179,7 @@ void reporter_reportsettings( ReporterData *data ) {
+     byte_snprintf( buffer, sizeof(buffer), win,
+                    toupper( data->info.mFormat));
+     printf( "%s: %s", (isUDP( data ) ? 
+-                                udp_buffer_size : tcp_window_size), buffer );
++                                dgram_buffer_size : tcp_window_size), buffer );
+ 
+     if ( win_requested == 0 ) {
+         printf( " %s", window_default );
+diff --git a/src/Server.cpp b/src/Server.cpp
+index da7ef14..b429237 100644
+--- a/src/Server.cpp
++++ b/src/Server.cpp
+@@ -136,7 +136,7 @@ void Server::Run( void ) {
+         // send a acknowledgement back only if we're NOT receiving multicast 
+         if ( isUDP( mSettings ) && !isMulticast( mSettings ) ) {
+             // send back an acknowledgement of the terminating datagram 
+-            write_UDP_AckFIN( ); 
++            write_dgram_AckFIN( ); 
+         }
+     } else {
+         FAIL(1, "Out of memory! Closing server thread\n", mSettings);
+@@ -158,7 +158,7 @@ void Server::Run( void ) {
+  * termination datagrams, so re-transmit our AckFIN. 
+  * ------------------------------------------------------------------- */ 
+ 
+-void Server::write_UDP_AckFIN( ) {
++void Server::write_dgram_AckFIN( ) {
+ 
+     int rc; 
+ 
+@@ -224,5 +224,5 @@ void Server::write_UDP_AckFIN( ) {
+ 
+     fprintf( stderr, warn_ack_failed, mSettings->mSock, count ); 
+ } 
+-// end write_UDP_AckFIN 
++// end write_dgram_AckFIN 
+ 
+diff --git a/src/Settings.cpp b/src/Settings.cpp
+index 244b2a5..e4b1b34 100644
+--- a/src/Settings.cpp
++++ b/src/Settings.cpp
+@@ -174,7 +174,7 @@ const char short_options[] = "1b:c:df:hi:l:mn:o:p:rst:uvw:x:y:B:CDF:IL:M:NP:RS:T
+  * ------------------------------------------------------------------- */
+ #define DEFAULTS()
+ 
+-const long kDefault_UDPRate = 1024 * 1024; // -u  if set, 1 Mbit/sec
++const long kDefault_DgramRate = 1024 * 1024; // -u  if set, 1 Mbit/sec
+ const int  kDefault_UDPBufLen = 1470;      // -u  if set, read/write 1470 bytes
+ // 1470 bytes is small enough to be sending one packet per datagram on ethernet
+ 
+@@ -194,7 +194,7 @@ void Settings_Initialize( thread_Settings *main ) {
+     main->mReportMode = kReport_Default;
+     // option, defaults
+     main->flags         = FLAG_MODETIME | FLAG_STDOUT; // Default time and stdout
+-    //main->mUDPRate      = 0;           // -b,  ie. TCP mode
++    //main->mDgramRate      = 0;           // -b,  ie. TCP mode
+     //main->mHost         = NULL;        // -c,  none, required for client
+     main->mMode         = kTest_Normal;  // -d,  mMode == kTest_DualTest
+     main->mFormat       = 'a';           // -f,  adaptive bits
+@@ -209,7 +209,7 @@ void Settings_Initialize( thread_Settings *main ) {
+     // mMode    = kTest_Normal;          // -r,  mMode == kTest_TradeOff
+     main->mThreadMode   = kMode_Unknown; // -s,  or -c, none
+     main->mAmount       = 1000;          // -t,  10 seconds
+-    // mUDPRate > 0 means UDP            // -u,  N/A, see kDefault_UDPRate
++    // mDgramRate > 0 means UDP            // -u,  N/A, see kDefault_DgramRate
+     // skip version                      // -v,
+     //main->mTCPWin       = 0;           // -w,  ie. don't set window
+ 
+@@ -325,7 +325,7 @@ void Settings_Interpret( char option, const char *optarg, thread_Settings *mExtS
+             }
+ 
+             Settings_GetLowerCaseArg(optarg,outarg);
+-            mExtSettings->mUDPRate = byte_atoi(outarg);
++            mExtSettings->mDgramRate = byte_atoi(outarg);
+             setUDP( mExtSettings );
+ 
+             // if -l has already been processed, mBufLenSet is true
+@@ -468,7 +468,7 @@ void Settings_Interpret( char option, const char *optarg, thread_Settings *mExtS
+             // already be non-zero, so don't overwrite that value
+             if ( !isUDP( mExtSettings ) ) {
+                 setUDP( mExtSettings );
+-                mExtSettings->mUDPRate = kDefault_UDPRate;
++                mExtSettings->mDgramRate = kDefault_DgramRate;
+             }
+ 
+             // if -l has already been processed, mBufLenSet is true
+@@ -753,7 +753,7 @@ void Settings_GenerateClientSettings( thread_Settings *server,
+         }
+         if ( hdr->mWinBand != 0 ) {
+             if ( isUDP( server ) ) {
+-                (*client)->mUDPRate = ntohl(hdr->mWinBand);
++                (*client)->mDgramRate = ntohl(hdr->mWinBand);
+             } else {
+                 (*client)->mTCPWin = ntohl(hdr->mWinBand);
+             }
+@@ -813,7 +813,7 @@ void Settings_GenerateClientHdr( thread_Settings *client, client_hdr *hdr ) {
+         hdr->bufferlen = 0;
+     }
+     if ( isUDP( client ) ) {
+-        hdr->mWinBand  = htonl(client->mUDPRate);
++        hdr->mWinBand  = htonl(client->mDgramRate);
+     } else {
+         hdr->mWinBand  = htonl(client->mTCPWin);
+     }

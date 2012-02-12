@@ -16,6 +16,7 @@
 extern int select_call(int socket_num, int seconds, int useconds);
 
 enum PROTO_TYPE {DCCP_T, UDP_T, TCP_T};
+enum PROTO_IO {SERVER_IO, CLIENT_IO};
 enum REQUEST {INCOMING_REQ, OUTGOING_REQ, INVALID_REQ};
 
 enum PTYPE {
@@ -27,7 +28,31 @@ enum PTYPE {
    answered_call
 };
 
+typedef struct {
+   char username[20];
+   char password[20];
+} login_data;
+
 #pragma pack(push, 1) // set current alignment to 1 byte 
+
+typedef struct {
+   char username[20];
+   uint32_t uid;
+} friendList_data;
+
+typedef struct {
+   uint32_t friendID;
+} carFormat; // Client Address Request
+
+typedef struct {
+   uint32_t friendID;
+   uint16_t portNum;
+} carOutFormat; // Client Address Request Outgoing
+
+typedef struct {
+   uint32_t friendID;
+   uint8_t status;
+} updateFormat; // Update of friend's online status
 
 typedef struct {
    uint32_t uid;

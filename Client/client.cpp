@@ -10,6 +10,7 @@
 
 #include <netdb.h>
 extern int h_errno;
+
 #include <sys/types.h>
 #include <sys/socket.h>
 
@@ -22,21 +23,32 @@ using namespace std;
 
 void connectToServer(int socket_num); 
 
-int main(void) {
+int main(int argc, char *argv[]) {
    int socket_num;
    struct hostent *theHost;
    struct sockaddr_in address;
+   uint16_t portNum;
 
-   socket_num = socket(PF_INET, SOCK_DCCP, IPPROTO_DCCP);
+   if (argc == 2)
+      portNum = (uint16_t) atoi(argv[1]);
+   else
+      portNum = 7777;
 
-   int on = 1;
+   fprintf(stderr, "Using port %hu\n", portNum);
+
+   if ((socket_num = socket(AF_INET, SOCK_DCCP, IPPROTO_DCCP)) < 0) {
+      perror("socket()");
+      exit (EXIT_FAILURE);
+   }
+
+   int on = 0;
    setsockopt(socket_num, SOL_DCCP, SO_REUSEADDR, 
          (const char *) &on, sizeof(on));
 
    theHost = gethostbyname("localhost");
    memcpy(&address.sin_addr, theHost->h_addr, theHost->h_length);
-   address.sin_family = PF_INET;
-   address.sin_port = htons(7777);
+   address.sin_family = AF_INET;
+   address.sin_port = htons(portNum);
 
    if (connect(socket_num, (struct sockaddr *) &address, sizeof(address)) < 0) {
       perror("connect()");

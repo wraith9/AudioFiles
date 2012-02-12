@@ -1,0 +1,1044 @@
+This implements features such as DCCP support and setting the congestion
+control method for TCP.
+
+Based on the work that Stephen Hemminger and Arnaldo did earlier.
+
+Notes:
+* Applies against 2.0.2
+* Uses a default service (can't alter it at present)
+* You specify protcol by --protocol/-X (see --help for more details)
+* You specify TCP congestion method by --algorithm/-A
+* Set the packet size to under MSS by -l or else it will fail
+
+To do still:
+
+* make code tidier (my code is pretty ugly and Linux specific at the
+moment)
+
+Signed-off-by: Ian McDonald <ian.mcdonald@jandi.co.nz>
+---
+diff --git a/include/Locale.h b/include/Locale.h
+index cde9108..df5dfcb 100644
+--- a/include/Locale.h
++++ b/include/Locale.h
+@@ -98,6 +98,12 @@ extern const char dgram_buffer_size[];
+ 
+ extern const char window_default[];
+ 
++extern const char tcp_cong_algo[];
++
++extern const char unknown_tcp_cong_algo[];
++
++extern const char default_tcp_cong_algo[];
++
+ extern const char wait_server_threads[];
+ 
+ /* -------------------------------------------------------------------
+@@ -184,6 +190,8 @@ extern const char warn_invalid_report_style[];
+ 
+ extern const char warn_invalid_report[];
+ 
++extern const char warn_cong_requested[];
++
+ #ifdef __cplusplus
+ } /* end extern "C" */
+ #endif
+diff --git a/include/PerfSocket.hpp b/include/PerfSocket.hpp
+index 2bfe3de..ba7421f 100644
+--- a/include/PerfSocket.hpp
++++ b/include/PerfSocket.hpp
+@@ -59,7 +59,11 @@
+ #include "Mutex.h"
+ #include "Settings.hpp"
+ 
+-    void SetSocketOptions( thread_Settings *inSettings );
++    void MakeSocket( thread_Settings *inSettings );
++
++    void SetTCPSocketOptions( thread_Settings *inSettings );
++    void SetDCCPSocketOptions( thread_Settings *inSettings );
++    void SetUDPSocketOptions( thread_Settings *inSettings );
+ 
+     // handle interupts
+     void Sig_Interupt( int inSigno );
+diff --git a/include/Reporter.h b/include/Reporter.h
+index 91343f4..c5b9a70 100644
+--- a/include/Reporter.h
++++ b/include/Reporter.h
+@@ -106,6 +106,7 @@ typedef struct Transfer_Info {
+     u_char mTTL;                    // -T
+     char   mUDP;
+     char   free;
++    char*  congAlgo;
+ } Transfer_Info;
+ 
+ typedef struct Connection_Info {
+@@ -145,6 +146,7 @@ typedef struct ReporterData {
+         bool   mUDP;
+         bool   mMode_time;*/
+     int flags; 
++    Protocol mProtocol;
+     // enums (which should be special int's)
+     ThreadMode mThreadMode;         // -s or -c
+     ReportMode mode;
+diff --git a/include/Settings.hpp b/include/Settings.hpp
+index 16612c4..2cc427b 100644
+--- a/include/Settings.hpp
++++ b/include/Settings.hpp
+@@ -94,6 +94,13 @@ typedef enum TestMode {
+     kTest_Unknown
+ } TestMode;
+ 
++typedef enum Protocol {
++    kTCP = 0,
++    kUDP,
++    kDCCP,
++    kSCTP
++} Protocol;
++
+ #include "Reporter.h"
+ /*
+  * The thread_Settings is a structure that holds all
+@@ -148,6 +155,7 @@ typedef struct thread_Settings {
+         bool   mNoMultReport;           // -x m
+         bool   mSinlgeClient;           // -1 */
+     int flags; 
++    Protocol mProtocol;
+     // enums (which should be special int's)
+     ThreadMode mThreadMode;         // -s or -c
+     ReportMode mReportMode;
+@@ -173,6 +181,7 @@ typedef struct thread_Settings {
+ #if defined( HAVE_WIN32_THREAD )
+     HANDLE mHandle;
+ #endif
++    char *congAlgo;
+ } thread_Settings;
+ 
+ /*
+@@ -197,7 +206,7 @@ typedef struct thread_Settings {
+ #define FLAG_STDIN          0x00000100
+ #define FLAG_STDOUT         0x00000200
+ #define FLAG_SUGGESTWIN     0x00000400
+-#define FLAG_UDP            0x00000800
++
+ #define FLAG_MODETIME       0x00001000
+ #define FLAG_REPORTSETTINGS 0x00002000
+ #define FLAG_MULTICAST      0x00004000
+@@ -208,6 +217,8 @@ typedef struct thread_Settings {
+ #define FLAG_NOMULTREPORT   0x00080000
+ #define FLAG_SINGLECLIENT   0x00100000
+ #define FLAG_SINGLEUDP      0x00200000
++#define FLAG_CONNECTIONLESS 0x00400000
++#define FLAG_PACKETORIENTED 0x08000000
+ 
+ #define isBuflenSet(settings)      ((settings->flags & FLAG_BUFLENSET) != 0)
+ #define isCompat(settings)         ((settings->flags & FLAG_COMPAT) != 0)
+@@ -220,7 +231,6 @@ typedef struct thread_Settings {
+ #define isSTDIN(settings)          ((settings->flags & FLAG_STDIN) != 0)
+ #define isSTDOUT(settings)         ((settings->flags & FLAG_STDOUT) != 0)
+ #define isSuggestWin(settings)     ((settings->flags & FLAG_SUGGESTWIN) != 0)
+-#define isUDP(settings)            ((settings->flags & FLAG_UDP) != 0)
+ #define isModeTime(settings)       ((settings->flags & FLAG_MODETIME) != 0)
+ #define isReport(settings)         ((settings->flags & FLAG_REPORTSETTINGS) != 0)
+ #define isMulticast(settings)      ((settings->flags & FLAG_MULTICAST) != 0)
+@@ -233,6 +243,8 @@ typedef struct thread_Settings {
+ // end Active Low
+ #define isSingleClient(settings)   ((settings->flags & FLAG_SINGLECLIENT) != 0)
+ #define isSingleUDP(settings)      ((settings->flags & FLAG_SINGLEUDP) != 0)
++#define isConnectionLess(settings) ((settings->flags & FLAG_CONNECTIONLESS) != 0)
++#define isPacketOriented(settings) ((settings->flags & FLAG_PACKETORIENTED) != 0)
+ 
+ #define setBuflenSet(settings)     settings->flags |= FLAG_BUFLENSET
+ #define setCompat(settings)        settings->flags |= FLAG_COMPAT
+@@ -245,7 +257,6 @@ typedef struct thread_Settings {
+ #define setSTDIN(settings)         settings->flags |= FLAG_STDIN
+ #define setSTDOUT(settings)        settings->flags |= FLAG_STDOUT
+ #define setSuggestWin(settings)    settings->flags |= FLAG_SUGGESTWIN
+-#define setUDP(settings)           settings->flags |= FLAG_UDP
+ #define setModeTime(settings)      settings->flags |= FLAG_MODETIME
+ #define setReport(settings)        settings->flags |= FLAG_REPORTSETTINGS
+ #define setMulticast(settings)     settings->flags |= FLAG_MULTICAST
+@@ -256,6 +267,8 @@ typedef struct thread_Settings {
+ #define setNoMultReport(settings)  settings->flags |= FLAG_NOMULTREPORT
+ #define setSingleClient(settings)  settings->flags |= FLAG_SINGLECLIENT
+ #define setSingleUDP(settings)     settings->flags |= FLAG_SINGLEUDP
++#define setConnectionLess(settings) settings->flags |= FLAG_CONNECTIONLESS
++#define setPacketOriented(settings) settings->flags |= FLAG_PACKETORIENTED
+ 
+ #define unsetBuflenSet(settings)   settings->flags &= ~FLAG_BUFLENSET
+ #define unsetCompat(settings)      settings->flags &= ~FLAG_COMPAT
+@@ -268,7 +281,6 @@ typedef struct thread_Settings {
+ #define unsetSTDIN(settings)       settings->flags &= ~FLAG_STDIN
+ #define unsetSTDOUT(settings)      settings->flags &= ~FLAG_STDOUT
+ #define unsetSuggestWin(settings)  settings->flags &= ~FLAG_SUGGESTWIN
+-#define unsetUDP(settings)         settings->flags &= ~FLAG_UDP
+ #define unsetModeTime(settings)    settings->flags &= ~FLAG_MODETIME
+ #define unsetReport(settings)      settings->flags &= ~FLAG_REPORTSETTINGS
+ #define unsetMulticast(settings)   settings->flags &= ~FLAG_MULTICAST
+@@ -279,6 +291,8 @@ typedef struct thread_Settings {
+ #define unsetNoMultReport(settings)   settings->flags &= ~FLAG_NOMULTREPORT
+ #define unsetSingleClient(settings)   settings->flags &= ~FLAG_SINGLECLIENT
+ #define unsetSingleUDP(settings)      settings->flags &= ~FLAG_SINGLEUDP
++#define unsetConnectionLess(settings) settings->flags &= ~FLAG_CONNECTIONLESS
++#define unsetPacketOriented(settings) settings->flags &= ~FLAG_PACKETORIENTED
+ 
+ 
+ #define HEADER_VERSION1 0x80000000
+diff --git a/include/headers.h b/include/headers.h
+index 657674f..1ebe898 100644
+--- a/include/headers.h
++++ b/include/headers.h
+@@ -193,6 +193,24 @@ typedef uintmax_t max_size_t;
+     #define SHUT_RDWR 2
+ #endif // SHUT_RD
+ 
++/* Plug-able TCP congestion control algorithm */
++#ifndef TCP_CONGESTION
++#define TCP_CONGESTION	13	/* include/linux/tcp.h */
++#endif
++
++/* DCCP-specific definitions */
++#ifndef SOCK_DCCP
++#define SOCK_DCCP	6
++#define SOL_DCCP	269	/* include/linux/socket.h */
++
++/* DCCP socket options, from include/linux/dccp.h */
++#define DCCP_SOCKOPT_SERVICE		2
++
++#else
++#include <linux/dccp.h>
++#endif
++
++
+ #endif /* HEADERS_H */
+ 
+ 
+diff --git a/include/version.h b/include/version.h
+index 59d3ada..7c7bb87 100644
+--- a/include/version.h
++++ b/include/version.h
+@@ -1,2 +1,2 @@
+-#define IPERF_VERSION "2.0.2"
+-#define IPERF_VERSION_DATE "03 May 2005"
++#define IPERF_VERSION "2.0.2 with DCCP - IM's version"
++#define IPERF_VERSION_DATE "20 Jul 2007"
+diff --git a/src/Client.cpp b/src/Client.cpp
+index acff6a4..dd10601 100644
+--- a/src/Client.cpp
++++ b/src/Client.cpp
+@@ -140,7 +140,7 @@ void Client::Run( void ) {
+         mEndTime.add( mSettings->mAmount / 100.0 );
+     }
+ 
+-    if ( isUDP( mSettings ) ) {
++    if ( isPacketOriented( mSettings ) ) {
+         // Due to the UDP timestamps etc, included 
+         // reduce the read size by an amount 
+         // equal to the header size
+@@ -187,7 +187,7 @@ void Client::Run( void ) {
+         //} 
+         gettimeofday( &(reportstruct->packetTime), NULL );
+ 
+-        if ( isUDP( mSettings ) ) {
++        if ( isPacketOriented( mSettings ) ) {
+             // store datagram ID into buffer 
+             mBuf_UDP->id      = htonl( (reportstruct->packetID)++ ); 
+             mBuf_UDP->tv_sec  = htonl( reportstruct->packetTime.tv_sec ); 
+@@ -213,9 +213,12 @@ void Client::Run( void ) {
+         } else
+             canRead = true; 
+ 
+-        // perform write 
+-        currLen = write( mSettings->mSock, mBuf, mSettings->mBufLen ); 
+-        if ( currLen < 0 ) {
++        // perform write
++	do {
++            currLen = write( mSettings->mSock, mBuf, mSettings->mBufLen ); 
++	} while ( currLen < 0 && errno == EAGAIN);
++
++	if ( currLen < 0 ) {
+             WARN_errno( currLen < 0, "write2" ); 
+             break; 
+         }
+@@ -239,7 +242,7 @@ void Client::Run( void ) {
+     gettimeofday( &(reportstruct->packetTime), NULL );
+     CloseReport( mSettings->reporthdr, reportstruct );
+ 
+-    if ( isUDP( mSettings ) ) {
++    if ( isPacketOriented( mSettings ) ) {
+         // send a final terminating datagram 
+         // Don't count in the mTotalLen. The server counts this one, 
+         // but didn't count our first datagram, so we're even now. 
+@@ -265,14 +268,15 @@ void Client::InitiateServer() {
+     if ( !isCompat( mSettings ) ) {
+         int currLen;
+         client_hdr* temp_hdr;
+-        if ( isUDP( mSettings ) ) {
++
++        if ( isPacketOriented( mSettings ) ) {
+             UDP_datagram *UDPhdr = (UDP_datagram *)mBuf;
+             temp_hdr = (client_hdr*)(UDPhdr + 1);
+         } else {
+             temp_hdr = (client_hdr*)mBuf;
+         }
+         Settings_GenerateClientHdr( mSettings, temp_hdr );
+-        if ( !isUDP( mSettings ) ) {
++        if ( !isConnectionLess( mSettings ) ) {
+             currLen = send( mSettings->mSock, mBuf, sizeof(client_hdr), 0 );
+             if ( currLen < 0 ) {
+                 WARN_errno( currLen < 0, "write1" );
+@@ -291,23 +295,17 @@ void Client::Connect( ) {
+     int rc;
+     SockAddr_remoteAddr( mSettings );
+ 
+-    assert( mSettings->inHostname != NULL );
+-
+-    // create an internet socket
+-    int type = ( isUDP( mSettings )  ?  SOCK_DGRAM : SOCK_STREAM);
+-
+-    int domain = (SockAddr_isIPv6( &mSettings->peer ) ? 
+-#ifdef HAVE_IPV6
+-                  AF_INET6
+-#else
+-                  AF_INET
+-#endif
+-                  : AF_INET);
++//    assert( mSettings->inHostname != NULL );
+ 
+-    mSettings->mSock = socket( domain, type, 0 );
+-    WARN_errno( mSettings->mSock == INVALID_SOCKET, "socket" );
++    MakeSocket( mSettings);
+ 
+-    SetSocketOptions( mSettings );
++	if (mSettings->mProtocol == kTCP) {
++    		SetTCPSocketOptions( mSettings );
++	} else if (mSettings->mProtocol == kDCCP) {
++		SetDCCPSocketOptions( mSettings);
++      } else if (mSettings->mProtocol == kUDP) {
++              SetUDPSocketOptions( mSettings );
++	}
+ 
+ 
+     SockAddr_localAddr( mSettings );
+diff --git a/src/Listener.cpp b/src/Listener.cpp
+index d278f60..5c73335 100644
+--- a/src/Listener.cpp
++++ b/src/Listener.cpp
+@@ -137,11 +137,12 @@ void Listener::Run( void ) {
+ #endif
+ #endif
+     {
+-        bool client = false, UDP = isUDP( mSettings ), mCount = (mSettings->mThreads != 0);
++        bool client = false, mCount = (mSettings->mThreads != 0);
+         thread_Settings *tempSettings = NULL;
+         Iperf_ListEntry *exist, *listtemp;
+-        client_hdr* hdr = ( UDP ? (client_hdr*) (((UDP_datagram*)mBuf) + 1) : 
+-                                  (client_hdr*) mBuf);
++        client_hdr* hdr = isPacketOriented(mSettings) 
++			    ? (client_hdr*) (((UDP_datagram*)mBuf) + 1) 
++			    : (client_hdr*) mBuf;
+         
+         if ( mSettings->mHost != NULL ) {
+             client = true;
+@@ -185,7 +186,7 @@ void Listener::Run( void ) {
+                                               (sockaddr*) &server->peer ) ) {
+                     // Not allowed try again
+                     close( server->mSock );
+-                    if ( isUDP( mSettings ) ) {
++                    if ( isConnectionLess( mSettings ) ) {
+                         mSettings->mSock = -1;
+                         Listen();
+                     }
+@@ -221,7 +222,7 @@ void Listener::Run( void ) {
+     
+             tempSettings = NULL;
+             if ( !isCompat( mSettings ) && !isMulticast( mSettings ) ) {
+-                if ( !UDP ) {
++		if ( isConnectionLess (mSettings) ) {
+                     // TCP does not have the info yet
+                     if ( recv( server->mSock, (char*)hdr, sizeof(client_hdr), 0) > 0 ) {
+                         Settings_GenerateClientSettings( server, &tempSettings, 
+@@ -249,7 +250,7 @@ void Listener::Run( void ) {
+     
+             // Start the server
+ #if defined(WIN32) && defined(HAVE_THREAD)
+-            if ( UDP ) {
++            if ( isConnectionLess(mSettings) ) {
+                 // WIN32 does bad UDP handling so run single threaded
+                 if ( server->runNow != NULL ) {
+                     thread_start( server->runNow );
+@@ -263,7 +264,7 @@ void Listener::Run( void ) {
+             thread_start( server );
+     
+             // create a new socket
+-            if ( UDP ) {
++            if ( isConnectionLess(mSettings) ) {
+                 mSettings->mSock = -1; 
+                 Listen( );
+             }
+@@ -293,30 +294,15 @@ void Listener::Listen( ) {
+ 
+     SockAddr_localAddr( mSettings );
+ 
+-    // create an internet TCP socket
+-    int type = (isUDP( mSettings )  ?  SOCK_DGRAM  :  SOCK_STREAM);
+-    int domain = (SockAddr_isIPv6( &mSettings->local ) ? 
+-#ifdef HAVE_IPV6
+-                  AF_INET6
+-#else
+-                  AF_INET
+-#endif
+-                  : AF_INET);
+-
+-#ifdef WIN32
+-    if ( SockAddr_isMulticast( &mSettings->local ) ) {
+-        // Multicast on Win32 requires special handling
+-        mSettings->mSock = WSASocket( domain, type, 0, 0, 0, WSA_FLAG_MULTIPOINT_C_LEAF | WSA_FLAG_MULTIPOINT_D_LEAF );
+-        WARN_errno( mSettings->mSock == INVALID_SOCKET, "socket" );
+-
+-    } else
+-#endif
+-    {
+-        mSettings->mSock = socket( domain, type, 0 );
+-        WARN_errno( mSettings->mSock == INVALID_SOCKET, "socket" );
+-    } 
++    MakeSocket( mSettings );
+ 
+-    SetSocketOptions( mSettings );
++	if (mSettings->mProtocol == kTCP) {
++    		SetTCPSocketOptions( mSettings );
++	} else if (mSettings->mProtocol == kDCCP) {
++		SetDCCPSocketOptions( mSettings);
++      } else if (mSettings->mProtocol == kUDP) {
++              SetUDPSocketOptions( mSettings );
++	}
+ 
+     // reuse the address, so we can run if a former server was killed off
+     int boolean = 1;
+@@ -337,7 +323,7 @@ void Listener::Listen( ) {
+     }
+     // listen for connections (TCP only).
+     // default backlog traditionally 5
+-    if ( !isUDP( mSettings ) ) {
++    if ( !isConnectionLess( mSettings ) ) {
+         rc = listen( mSettings->mSock, 5 );
+         WARN_errno( rc == SOCKET_ERROR, "listen" );
+     }
+@@ -416,7 +402,7 @@ void Listener::McastSetTTL( int val ) {
+ void Listener::Accept( thread_Settings *server ) {
+ 
+     server->size_peer = sizeof(iperf_sockaddr); 
+-    if ( isUDP( server ) ) {
++    if ( isConnectionLess(server)) {
+         /* ------------------------------------------------------------------- 
+          * Do the equivalent of an accept() call for datagram sockets.
+ 	 * This waits on a listening datagram socket until we get a datagram. 
+@@ -465,13 +451,14 @@ void Listener::Accept( thread_Settings *server ) {
+ 
+ void Listener::UDPSingleServer( ) {
+     
+-    bool client = false, UDP = isUDP( mSettings ), mCount = (mSettings->mThreads != 0);
++    bool client = false, mCount = (mSettings->mThreads != 0);
+     thread_Settings *tempSettings = NULL;
+     Iperf_ListEntry *exist, *listtemp;
+     int rc;
+     int32_t datagramID;
+-    client_hdr* hdr = ( UDP ? (client_hdr*) (((UDP_datagram*)mBuf) + 1) : 
+-                              (client_hdr*) mBuf);
++    client_hdr* hdr = isPacketOriented(mSettings)
++	    ? (client_hdr*) (((UDP_datagram*)mBuf) + 1) 
++	    : (client_hdr*) mBuf;
+     ReportStruct *reportstruct = new ReportStruct;
+     
+     if ( mSettings->mHost != NULL ) {
+diff --git a/src/Locale.c b/src/Locale.c
+index 0436567..e871be8 100644
+--- a/src/Locale.c
++++ b/src/Locale.c
+@@ -138,11 +138,13 @@ Client/Server:\n\
+   -p, --port      #        server port to listen on/connect to\n\
+   -u, --udp                use UDP rather than TCP\n\
+   -w, --window    #[KM]    TCP window size (socket buffer size)\n\
++  -A, --algorithm          set TCP congestion control algorithm\n\
+   -B, --bind      <host>   bind to <host>, an interface or multicast address\n\
+   -C, --compatibility      for use with older versions does not sent extra msgs\n\
+   -M, --mss       #        set TCP maximum segment size (MTU - 40 bytes)\n\
+   -N, --nodelay            set TCP no delay, disabling Nagle's Algorithm\n\
+   -V, --IPv6Version        Set the domain to IPv6\n\
++  -X, --protocol           set protcol: TCP, UDP, DCCP, SCTP\n\
+ \n\
+ Server specific:\n\
+   -s, --server             run in server mode\n\
+@@ -225,6 +227,18 @@ const char dgram_buffer_size[] =
+ const char window_default[] =
+ "(default)";
+ 
++const char tcp_cong_algo[] =
++"TCP congestion control algorithm";
++
++const char unknown_tcp_cong_algo[] =
++"*unknown*";
++
++const char default_tcp_cong_algo[] =
++"default";
++
++const char warn_cong_requested[] =
++"REQUESTED:";
++
+ const char wait_server_threads[] =
+ "Waiting for server threads to complete. Interrupt again to force quit.\n";
+ 
+diff --git a/src/PerfSocket.cpp b/src/PerfSocket.cpp
+index c25a0b6..adb41ef 100644
+--- a/src/PerfSocket.cpp
++++ b/src/PerfSocket.cpp
+@@ -78,12 +78,68 @@
+ #include "SocketAddr.h"
+ #include "util.h"
+ 
++// create an internet socket
++void MakeSocket(thread_Settings *inSettings) {
++	int domain = 
++#ifdef HAVE_IPV6
++		SockAddr_isIPv6(&inSettings->local) ? AF_INET6 :
++#endif
++                AF_INET;
++    int type = 0, proto = 0;
++
++    switch (inSettings->mProtocol) {
++        case kTCP:
++	    type = SOCK_STREAM;
++	    break;
++	    
++	case kUDP:
++	    type = SOCK_DGRAM;
++            setPacketOriented(inSettings);
++	    setConnectionLess(inSettings);
++	    break;
++	    
++    	case kSCTP:
++	    type = SOCK_STREAM; 
++	    proto = IPPROTO_SCTP;
++	    break;
++	    
++    	case kDCCP:
++	    type = SOCK_DCCP;
++//	    setPacketOriented(inSettings);
++	    break;
++
++	default:    
++	    fprintf(stderr, "Don't understand the protocol '%s'\n", 
++		inSettings->mProtocol);
++    }
++
++#ifdef WIN32
++    if ( SockAddr_isMulticast( &mSettings->local ) ) {
++        // Multicast on Win32 requires special handling
++        inSettings->mSock = WSASocket( domain, type, proto, 0, 0, 
++				      WSA_FLAG_MULTIPOINT_C_LEAF | WSA_FLAG_MULTIPOINT_D_LEAF );
++
++    } else
++#endif
++        inSettings->mSock = socket( domain, type, proto );
++
++    WARN_errno( inSettings->mSock == INVALID_SOCKET, "socket" );
++}
++
+ /* -------------------------------------------------------------------
+  * Set socket options before the listen() or connect() calls.
+  * These are optional performance tuning factors.
+  * ------------------------------------------------------------------- */
+ 
+-void SetSocketOptions( thread_Settings *inSettings ) {
++void SetUDPSocketOptions( thread_Settings *inSettings ) {
++
++    // Set the UCP socket buffer size
++    setsock_tcp_windowsize( inSettings->mSock, inSettings->mTCPWin,
++                         (inSettings->mThreadMode == kMode_Client ? 1 : 0));
++
++}
++
++void SetTCPSocketOptions( thread_Settings *inSettings ) {
+     // set the TCP window size (socket buffer sizes)
+     // also the UDP buffer size
+     // must occur before call to accept() for large window sizes
+@@ -123,7 +179,7 @@ void SetSocketOptions( thread_Settings *inSettings ) {
+     }
+ #endif
+ 
+-    if ( !isUDP( inSettings ) ) {
++    if ( !isPacketOriented( inSettings ) ) {
+         // set the TCP maximum segment size
+         setsock_tcp_mss( inSettings->mSock, inSettings->mMSS );
+ 
+@@ -138,6 +194,29 @@ void SetSocketOptions( thread_Settings *inSettings ) {
+             WARN_errno( rc == SOCKET_ERROR, "setsockopt TCP_NODELAY" );
+         }
+ #endif
++
++        // set TCP congestion algorithm
++        if ( inSettings->congAlgo ) {
++            Socklen_t len = strlen( inSettings->congAlgo );
++            int rc = setsockopt( inSettings->mSock, IPPROTO_TCP, TCP_CONGESTION,
++                                 inSettings->congAlgo , len );
++            WARN_errno( rc == SOCKET_ERROR, "setsockopt TCP_CONGESTION" );
++        }
+     }
+ }
+-// end SetSocketOptions
++// end SetTCPSocketOptions
++
++void SetDCCPSocketOptions( thread_Settings *inSettings ) {
++	int rc, val;
++	Socklen_t len = sizeof(val);
++
++	/*
++	 * We use the service code SC:PERF (0x50455246) for performance tests.
++	 * See draft-fairhurst-dccp-serv-codes for further details.
++	 */
++        val = htonl(0x50455246);			/* ALWAYS use htonl */
++        rc = setsockopt( inSettings->mSock, SOL_DCCP, DCCP_SOCKOPT_SERVICE,
++                         &val, len );
++        WARN_errno( rc == SOCKET_ERROR, "setsockopt DCCP_SOCKOPT_SERVICE" );
++}
++// end SetDCCPSocketOptions
+diff --git a/src/ReportDefault.c b/src/ReportDefault.c
+index aa4f9cf..c45fc62 100644
+--- a/src/ReportDefault.c
++++ b/src/ReportDefault.c
+@@ -145,21 +145,39 @@ void reporter_serverstats( Connection_Info *nused, Transfer_Info *stats ) {
+  */
+ void reporter_reportsettings( ReporterData *data ) {
+     int win, win_requested;
++    char *protocol;
+ 
+     win = getsock_tcp_windowsize( data->info.transferID,
+                   (data->mThreadMode == kMode_Listener ? 0 : 1) );
+     win_requested = data->mTCPWin;
+ 
+     printf( seperator_line );
++    switch (data->mProtocol) {
++	    case kTCP:
++		    protocol = "TCP";
++		    break;
++		    
++	    case kUDP:
++		    protocol = "UDP";
++		    break;
++
++	    case kDCCP:
++		    protocol = "DCCP";
++		    break;
++
++	    case kSCTP:
++		    protocol = "SCTP";
++		    break;
++
++	    default:
++		    protocol = "unknown";
++		    break;
++    }
++	    
+     if ( data->mThreadMode == kMode_Listener ) {
+-        printf( server_port,
+-                (isUDP( data ) ? "UDP" : "TCP"), 
+-                data->mPort );
++	printf( server_port, protocol, data->mPort );
+     } else {
+-        printf( client_port,
+-                data->mHost,
+-                (isUDP( data ) ? "UDP" : "TCP"),
+-                data->mPort );
++	printf( client_port, data->mHost, protocol, data->mPort );
+     }
+     if ( data->mLocalhost != NULL ) {
+         printf( bind_address, data->mLocalhost );
+@@ -168,7 +186,7 @@ void reporter_reportsettings( ReporterData *data ) {
+         }
+     }
+ 
+-    if ( isUDP( data ) ) {
++    if ( isConnectionLess( data ) ) {
+         printf( (data->mThreadMode == kMode_Listener ? 
+                                    server_datagram_size : client_datagram_size),
+                 data->mBufLen );
+@@ -178,7 +196,8 @@ void reporter_reportsettings( ReporterData *data ) {
+     }
+     byte_snprintf( buffer, sizeof(buffer), win,
+                    toupper( data->info.mFormat));
+-    printf( "%s: %s", (isUDP( data ) ? 
++    if ( data->mProtocol != kDCCP)
++        printf( "%s: %s", (isPacketOriented( data ) ? 
+                                 dgram_buffer_size : tcp_window_size), buffer );
+ 
+     if ( win_requested == 0 ) {
+@@ -189,6 +208,33 @@ void reporter_reportsettings( ReporterData *data ) {
+         printf( warn_window_requested, buffer );
+     }
+     printf( "\n" );
++    
++    if ( data->mProtocol == kTCP ) {
++      char cong[64];
++      char *cong_requested = data->info.congAlgo;
++      Socklen_t len = sizeof(cong);
++      
++      int rc = getsockopt( data->info.transferID, IPPROTO_TCP, TCP_CONGESTION,
++                              cong, &len );
++
++      if (cong[0] == '\0')
++	      strcpy( cong, default_tcp_cong_algo);
++
++      if ( rc == SOCKET_ERROR ) {
++        snprintf ( cong, sizeof(cong), "%s (err: %d %s)", unknown_tcp_cong_algo,
++                    errno, strerror(errno), data->info.transferID);
++      }
++      
++      printf( "%s: %s", tcp_cong_algo, cong );
++      
++      if ( cong_requested && strcmp(cong, cong_requested) ) {
++        printf(" %s %s", warn_cong_requested, cong_requested);
++      }
++      
++      printf("\n");
++      
++    }
++
+     printf( seperator_line );
+ }
+ 
+diff --git a/src/Reporter.c b/src/Reporter.c
+index 73143b3..36f7d03 100644
+--- a/src/Reporter.c
++++ b/src/Reporter.c
+@@ -157,11 +157,12 @@ MultiHeader* InitMulti( thread_Settings *agent, int inID ) {
+                 data->mMSS = agent->mMSS;
+                 data->mTCPWin = agent->mTCPWin;
+                 data->flags = agent->flags;
++		data->mProtocol = agent->mProtocol;
+                 data->mThreadMode = agent->mThreadMode;
+                 data->mode = agent->mReportMode;
+                 data->info.mFormat = agent->mFormat;
+                 data->info.mTTL = agent->mTTL;
+-                if ( isUDP( agent ) ) {
++                if ( isConnectionLess( agent ) ) {
+                     multihdr->report->info.mUDP = (char)agent->mThreadMode;
+                 }
+                 if ( isConnectionReport( agent ) ) {
+@@ -225,6 +226,7 @@ ReportHeader* InitReport( thread_Settings *agent ) {
+             data->info.transferID = agent->mSock;
+             data->info.groupID = (agent->multihdr != NULL ? agent->multihdr->groupID 
+                                                           : -1);
++            data->info.congAlgo = agent->congAlgo;
+             data->type = TRANSFER_REPORT;
+             if ( agent->mInterval != 0.0 ) {
+                 struct timeval *interval = &data->intervalTime;
+@@ -238,11 +240,12 @@ ReportHeader* InitReport( thread_Settings *agent ) {
+             data->mMSS = agent->mMSS;
+             data->mTCPWin = agent->mTCPWin;
+             data->flags = agent->flags;
++	    data->mProtocol = agent->mProtocol;
+             data->mThreadMode = agent->mThreadMode;
+             data->mode = agent->mReportMode;
+             data->info.mFormat = agent->mFormat;
+             data->info.mTTL = agent->mTTL;
+-            if ( isUDP( agent ) ) {
++            if ( isPacketOriented( agent ) ) {
+                 reporthdr->report.info.mUDP = (char)agent->mThreadMode;
+             }
+         } else {
+@@ -261,6 +264,7 @@ ReportHeader* InitReport( thread_Settings *agent ) {
+                 data = &reporthdr->report;
+                 data->info.transferID = agent->mSock;
+                 data->info.groupID = -1;
++                data->info.congAlgo = agent->congAlgo;
+             } else {
+                 FAIL(1, "Out of Memory!!\n", agent);
+             }
+@@ -432,6 +436,7 @@ void ReportSettings( thread_Settings *agent ) {
+             ReporterData *data = &reporthdr->report;
+             data->info.transferID = agent->mSock;
+             data->info.groupID = -1;
++            data->info.congAlgo = agent->congAlgo;
+             reporthdr->agentindex = -1;
+             reporthdr->reporterindex = -1;
+         
+@@ -443,6 +448,7 @@ void ReportSettings( thread_Settings *agent ) {
+             data->mMSS = agent->mMSS;
+             data->mTCPWin = agent->mTCPWin;
+             data->flags = agent->flags;
++	    data->mProtocol = agent->mProtocol;
+             data->mThreadMode = agent->mThreadMode;
+             data->mPort = agent->mPort;
+             data->info.mFormat = agent->mFormat;
+@@ -786,7 +792,7 @@ int reporter_condprintstats( ReporterData *stats, MultiHeader *multireport, int
+         if ( stats->info.cntError > stats->info.cntOutofOrder ) {
+             stats->info.cntError -= stats->info.cntOutofOrder;
+         }
+-        stats->info.cntDatagrams = (isUDP(stats) ? stats->PacketID : stats->cntDatagrams);
++        stats->info.cntDatagrams = (isPacketOriented(stats) ? stats->PacketID : stats->cntDatagrams);
+         stats->info.TotalLen = stats->TotalLen;
+         stats->info.startTime = 0;
+         stats->info.endTime = TimeDifference( stats->packetTime, stats->startTime );
+@@ -808,9 +814,9 @@ int reporter_condprintstats( ReporterData *stats, MultiHeader *multireport, int
+             stats->info.cntError -= stats->info.cntOutofOrder;
+         }
+         stats->lastError = stats->cntError;
+-        stats->info.cntDatagrams = (isUDP( stats ) ? stats->PacketID - stats->lastDatagrams :
++        stats->info.cntDatagrams = (isPacketOriented( stats ) ? stats->PacketID - stats->lastDatagrams :
+                                                      stats->cntDatagrams - stats->lastDatagrams);
+-        stats->lastDatagrams = (isUDP( stats ) ? stats->PacketID : stats->cntDatagrams);
++        stats->lastDatagrams = (isPacketOriented( stats ) ? stats->PacketID : stats->cntDatagrams);
+         stats->info.TotalLen = stats->TotalLen - stats->lastTotal;
+         stats->lastTotal = stats->TotalLen;
+         stats->info.startTime = stats->info.endTime;
+@@ -833,7 +839,7 @@ int reporter_print( ReporterData *stats, int type, int end ) {
+     switch ( type ) {
+         case TRANSFER_REPORT:
+             statistics_reports[stats->mode]( &stats->info );
+-            if ( end != 0 && isPrintMSS( stats ) && !isUDP( stats ) ) {
++            if ( end != 0 && isPrintMSS( stats ) && !isPacketOriented( stats ) ) {
+                 PrintMSS( stats );
+             }
+             break;
+diff --git a/src/Server.cpp b/src/Server.cpp
+index b429237..3bf58e4 100644
+--- a/src/Server.cpp
++++ b/src/Server.cpp
+@@ -110,7 +110,7 @@ void Server::Run( void ) {
+             // perform read 
+             currLen = recv( mSettings->mSock, mBuf, mSettings->mBufLen, 0 ); 
+         
+-            if ( isUDP( mSettings ) ) {
++            if ( isPacketOriented( mSettings ) ) {
+                 // read the datagram ID and sentTime out of the buffer 
+                 reportstruct->packetID = ntohl( mBuf_UDP->id ); 
+                 reportstruct->sentTime.tv_sec = ntohl( mBuf_UDP->tv_sec  );
+@@ -134,7 +134,7 @@ void Server::Run( void ) {
+         CloseReport( mSettings->reporthdr, reportstruct );
+         
+         // send a acknowledgement back only if we're NOT receiving multicast 
+-        if ( isUDP( mSettings ) && !isMulticast( mSettings ) ) {
++        if ( isConnectionLess( mSettings ) && !isMulticast( mSettings ) ) {
+             // send back an acknowledgement of the terminating datagram 
+             write_dgram_AckFIN( ); 
+         }
+diff --git a/src/Settings.cpp b/src/Settings.cpp
+index e4b1b34..7d03f53 100644
+--- a/src/Settings.cpp
++++ b/src/Settings.cpp
+@@ -105,6 +105,7 @@ const struct option long_options[] =
+ {"reportstyle",required_argument, NULL, 'y'},
+ 
+ // more esoteric options
++{"algorithm",  required_argument, NULL, 'A'},
+ {"bind",       required_argument, NULL, 'B'},
+ {"compatibility",    no_argument, NULL, 'C'},
+ {"daemon",           no_argument, NULL, 'D'},
+@@ -120,6 +121,7 @@ const struct option long_options[] =
+ {"single_udp",       no_argument, NULL, 'U'},
+ {"ipv6_domian",      no_argument, NULL, 'V'},
+ {"suggest_win_size", no_argument, NULL, 'W'},
++{"protocol",   required_argument, NULL, 'X'},
+ {0, 0, 0, 0}
+ };
+ 
+@@ -148,6 +150,7 @@ const struct option env_options[] =
+ {"IPERF_REPORTSTYLE",required_argument, NULL, 'y'},
+ 
+ // more esoteric options
++{"IPERF_CC",         required_argument, NULL, 'A'},
+ {"IPERF_BIND",       required_argument, NULL, 'B'},
+ {"IPERF_COMPAT",           no_argument, NULL, 'C'},
+ {"IPERF_DAEMON",           no_argument, NULL, 'D'},
+@@ -162,12 +165,14 @@ const struct option env_options[] =
+ {"IPERF_SINGLE_UDP",       no_argument, NULL, 'U'},
+ {"IPERF_IPV6_DOMAIN",      no_argument, NULL, 'V'},
+ {"IPERF_SUGGEST_WIN_SIZE", required_argument, NULL, 'W'},
++{"IPERF_PROTOCOL",   required_argument, NULL, 'X'},
+ {0, 0, 0, 0}
+ };
+ 
+ #define SHORT_OPTIONS()
+ 
+-const char short_options[] = "1b:c:df:hi:l:mn:o:p:rst:uvw:x:y:B:CDF:IL:M:NP:RS:T:UVW";
++const char short_options[] = 
++	"1b:c:df:hi:l:mn:o:p:rst:uvw:x:y:A:B:CDF:IL:M:NP:RS:T:UVWX:";
+ 
+ /* -------------------------------------------------------------------
+  * defaults
+@@ -206,6 +211,7 @@ void Settings_Initialize( thread_Settings *main ) {
+     // mAmount is time also              // -n,  N/A
+     //main->mOutputFileName = NULL;      // -o,  filename
+     main->mPort         = 5001;          // -p,  ttcp port
++    main->mProtocol	= kTCP,		 // -q,  default to TCP
+     // mMode    = kTest_Normal;          // -r,  mMode == kTest_TradeOff
+     main->mThreadMode   = kMode_Unknown; // -s,  or -c, none
+     main->mAmount       = 1000;          // -t,  10 seconds
+@@ -303,6 +309,30 @@ void Settings_ParseCommandLine( int argc, char **argv, thread_Settings *mSetting
+ } // end ParseCommandLine
+ 
+ /* -------------------------------------------------------------------
++ * Do UDP settings
++ * ------------------------------------------------------------------- */
++
++void Settings_UDP( char option, thread_Settings *mExtSettings ) {
++
++    // if -b has already been processed, UDP rate will
++    // already be non-zero, so don't overwrite that value
++    if (mExtSettings->mProtocol != kUDP) {
++	mExtSettings->mProtocol = kUDP;
++        mExtSettings->mDgramRate = kDefault_DgramRate;
++    }
++
++    // if -l has already been processed, mBufLenSet is true
++    // so don't overwrite that value.
++    if ( !isBuflenSet( mExtSettings ) ) {
++        mExtSettings->mBufLen = kDefault_UDPBufLen;
++    } else if ( mExtSettings->mBufLen < (int) ( sizeof( UDP_datagram ) 
++            + sizeof( client_hdr ) ) && !isCompat( mExtSettings ) ) {
++        setCompat( mExtSettings );
++        fprintf( stderr, warn_implied_compatibility, option );
++    }
++}
++
++/* -------------------------------------------------------------------
+  * Interpret individual options, either from the command line
+  * or from environment variables.
+  * ------------------------------------------------------------------- */
+@@ -315,8 +345,9 @@ void Settings_Interpret( char option, const char *optarg, thread_Settings *mExtS
+             setSingleClient( mExtSettings );
+             break;
+         case 'b': // UDP bandwidth
+-            if ( !isUDP( mExtSettings ) ) {
++            if ( !isPacketOriented( mExtSettings ) ) {
+                 fprintf( stderr, warn_implied_udp, option );
++		mExtSettings->mProtocol = kUDP;
+             }
+ 
+             if ( mExtSettings->mThreadMode != kMode_Client ) {
+@@ -326,7 +357,6 @@ void Settings_Interpret( char option, const char *optarg, thread_Settings *mExtS
+ 
+             Settings_GetLowerCaseArg(optarg,outarg);
+             mExtSettings->mDgramRate = byte_atoi(outarg);
+-            setUDP( mExtSettings );
+ 
+             // if -l has already been processed, mBufLenSet is true
+             // so don't overwrite that value.
+@@ -394,7 +424,7 @@ void Settings_Interpret( char option, const char *optarg, thread_Settings *mExtS
+             Settings_GetUpperCaseArg(optarg,outarg);
+             mExtSettings->mBufLen = byte_atoi( outarg );
+             setBuflenSet( mExtSettings );
+-            if ( !isUDP( mExtSettings ) ) {
++            if ( !isPacketOriented( mExtSettings ) ) {
+                  if ( mExtSettings->mBufLen < (int) sizeof( client_hdr ) &&
+                       !isCompat( mExtSettings ) ) {
+                     setCompat( mExtSettings );
+@@ -464,23 +494,7 @@ void Settings_Interpret( char option, const char *optarg, thread_Settings *mExtS
+             break;
+ 
+         case 'u': // UDP instead of TCP
+-            // if -b has already been processed, UDP rate will
+-            // already be non-zero, so don't overwrite that value
+-            if ( !isUDP( mExtSettings ) ) {
+-                setUDP( mExtSettings );
+-                mExtSettings->mDgramRate = kDefault_DgramRate;
+-            }
+-
+-            // if -l has already been processed, mBufLenSet is true
+-            // so don't overwrite that value.
+-            if ( !isBuflenSet( mExtSettings ) ) {
+-                mExtSettings->mBufLen = kDefault_UDPBufLen;
+-            } else if ( mExtSettings->mBufLen < (int) ( sizeof( UDP_datagram ) 
+-                        + sizeof( client_hdr ) ) &&
+-                        !isCompat( mExtSettings ) ) {
+-                setCompat( mExtSettings );
+-                fprintf( stderr, warn_implied_compatibility, option );
+-            }
++	    Settings_UDP( option, mExtSettings );
+             break;
+ 
+         case 'v': // print version and exit
+@@ -540,6 +554,11 @@ void Settings_Interpret( char option, const char *optarg, thread_Settings *mExtS
+ 
+ 
+             // more esoteric options
++        case 'A': // specify congestion algorithm
++            mExtSettings->congAlgo = new char[ strlen( optarg ) + 1 ];
++            strcpy( mExtSettings->congAlgo, optarg );          
++            break;
++            
+         case 'B': // specify bind address
+             mExtSettings->mLocalhost = new char[ strlen( optarg ) + 1 ];
+             strcpy( mExtSettings->mLocalhost, optarg );
+@@ -664,29 +683,40 @@ void Settings_Interpret( char option, const char *optarg, thread_Settings *mExtS
+             fprintf( stderr, "The -W option is not available in this release\n");
+             break;
+ 
++	case 'X':
++            Settings_GetUpperCaseArg( optarg, outarg );
++	    if (strcmp(outarg,"TCP") == 0) 
++		    mExtSettings->mProtocol = kTCP;
++	    else if (strcmp(outarg,"UDP") == 0)
++		    Settings_UDP( option, mExtSettings);
++	    else if (strcmp(outarg,"DCCP") == 0)
++		    mExtSettings->mProtocol = kDCCP;
++	    else if (strcmp(outarg,"SCTP") == 0)
++		    mExtSettings->mProtocol = kSCTP;
++	    else
++		    fprintf( stderr, "%s is not a valid protocol for -X\n",
++			optarg);
++	    break;
++
+         default: // ignore unknown
+             break;
+     }
+ } // end Interpret
+ 
+ void Settings_GetUpperCaseArg(const char *inarg, char *outarg) {
+-
+-    int len = strlen(inarg);
+-    strcpy(outarg,inarg);
+-
+-    if ( (len > 0) && (inarg[len-1] >='a') 
+-         && (inarg[len-1] <= 'z') )
+-        outarg[len-1]= outarg[len-1]+'A'-'a';
++    while (*inarg) {
++	    *outarg++ = islower(*inarg) ? toupper(*inarg) : *inarg;
++	    ++inarg;
++    }
++    *outarg =  '\0';
+ }
+ 
+ void Settings_GetLowerCaseArg(const char *inarg, char *outarg) {
+-
+-    int len = strlen(inarg);
+-    strcpy(outarg,inarg);
+-
+-    if ( (len > 0) && (inarg[len-1] >='A') 
+-         && (inarg[len-1] <= 'Z') )
+-        outarg[len-1]= outarg[len-1]-'A'+'a';
++    while (*inarg) {
++	    *outarg++ = isupper(*inarg) ? tolower(*inarg) : *inarg;
++	    ++inarg;
++    }
++    *outarg =  '\0';
+ }
+ 
+ /*
+@@ -752,7 +782,7 @@ void Settings_GenerateClientSettings( thread_Settings *server,
+             (*client)->mBufLen = ntohl(hdr->bufferlen);
+         }
+         if ( hdr->mWinBand != 0 ) {
+-            if ( isUDP( server ) ) {
++            if ( isPacketOriented( server ) ) {
+                 (*client)->mDgramRate = ntohl(hdr->mWinBand);
+             } else {
+                 (*client)->mTCPWin = ntohl(hdr->mWinBand);
+@@ -812,7 +842,7 @@ void Settings_GenerateClientHdr( thread_Settings *client, client_hdr *hdr ) {
+     } else {
+         hdr->bufferlen = 0;
+     }
+-    if ( isUDP( client ) ) {
++    if ( isPacketOriented( client ) ) {
+         hdr->mWinBand  = htonl(client->mDgramRate);
+     } else {
+         hdr->mWinBand  = htonl(client->mTCPWin);

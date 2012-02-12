@@ -8,12 +8,20 @@
 
 #include "common.h"
 
+#include <netdb.h>
+extern int h_errno;
+
+#include <string>
+
+using namespace std;
+
 class TransProtocol {
    public:
       TransProtocol();
       virtual ~TransProtocol() {};
 
-      int waitForClients(int seconds);
+      int waitForResponse(int seconds);
+      int waitForRequests(int seconds);
 
       virtual int sendPacket(const void *buf, size_t len,
             int flags) =0;
@@ -30,6 +38,8 @@ class TransProtocol {
       int client_socket;
       int temp_socket;
       virtual int openSocket() =0;
+      virtual void initServer(uint16_t portNum) =0;
+      virtual void initClient(string hostname, uint16_t portNum) =0;
 
 };
 
