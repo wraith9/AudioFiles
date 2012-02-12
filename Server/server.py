@@ -6,8 +6,9 @@ Created on Feb 4, 2012
 
 import asyncore
 import socket
-from requesthandler import RequestHandler
-from common import BUFSIZE
+import threading
+from requesthandler import RequestHandler, runUpdateDaemon
+from common import BUFSIZE, UPDATE_INTERVAL
 
 class ChatHandler(asyncore.dispatcher):
     '''
@@ -16,7 +17,7 @@ class ChatHandler(asyncore.dispatcher):
     
     def __init__(self, sock, addr):
         asyncore.dispatcher.__init__(self, sock=sock)
-        self.reqHandler = RequestHandler(addr)
+        self.reqHandler = RequestHandler(addr, sock)
         
     def handle_read(self):
         if not hasattr(self, 'reqHandler'):
@@ -32,7 +33,7 @@ class ChatHandler(asyncore.dispatcher):
 
 class ChatServer(asyncore.dispatcher):
     '''
-    Main server module -- should only be 1 instance in the loop
+    Main server module -- should only be 1 instance total
     '''
 
     def __init__(self, host, port):
@@ -40,6 +41,8 @@ class ChatServer(asyncore.dispatcher):
         Constructor
         '''
         asyncore.dispatcher.__init__(self)
+        
+        threading.Timer(UPDATE_INTERVAL, runUpdateDaemon)
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind((host, port))

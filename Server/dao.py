@@ -36,6 +36,11 @@ class dao:
                          'JOIN Users us ON us.userID = fr.friendID ' +
                          'WHERE fr.userID=?', param)
         return self.cur.fetchall()
+    
+    def hasFriend(self, userID, friendID):
+        param = (userID, friendID)
+        self.cur.execute('SELECT * FROM Friends WHERE userID=? AND friendID=?', param)
+        return not self.cur.fetchone() == None
         
     def __del__(self):
         self.conn.commit()
