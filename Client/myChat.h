@@ -6,7 +6,7 @@
 #ifndef MYCHAT_H
 #define MYCHAT_H
 
-#include "Server.h"
+#include "Client.h"
 
 enum CLIENT_STATE {
    IDLE_S,
@@ -15,7 +15,6 @@ enum CLIENT_STATE {
    CHATTING_S,
 };
    
-// Server stuff
 void printMenu(); 
 void helpMenu();
 enum CLIENT_STATE getUserInput();
@@ -24,6 +23,6 @@ void printFriendList();
 uint32_t whoToCall();
 bool verifyId(uint32_t uid);
 
-Server *theServer;
+Client *theClient;
 
 #endif

@@ -4,17 +4,17 @@ CC = g++
 CFLAGS = -g -Wall -c -Werror -lsocket -lnsl -O2
 LIBS = -lboost_thread -lpthread
 
-ALL = myChat client
+ALL = myChat 
 
 all: $(ALL)
 
-myChat: myChat.o Server.o TransProtocol.o DCCP.o TCP.o util.o
+myChat: myChat.o Client.o TransProtocol.o DCCP.o TCP.o util.o
 	$(CC) -o $@ $^ $(LIBS) 
 
-myChat.o: myChat.cpp myChat.h Server.h
+myChat.o: myChat.cpp myChat.h Client.h
 	$(CC) $(CFLAGS) -c $< $(LIBS)
 
-Server.o: Server.cpp Server.h common.h TransProtocol.h DCCP.h TCP.h
+Client.o: Client.cpp Client.h common.h TransProtocol.h DCCP.h TCP.h
 	$(CC) $(CFLAGS) -c $< $(LIBS)
 
 TransProtocol.o: TransProtocol.cpp TransProtocol.h common.h

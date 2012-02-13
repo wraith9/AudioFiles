@@ -20,9 +20,9 @@ DCCP::DCCP(enum PROTO_IO protoIO, string hostname, uint16_t portNum) {
 
    openSocket();
    if (protoIO == SERVER_IO)
-      initServer(portNum);
+      initMaster(portNum);
    else if (protoIO == CLIENT_IO)
-      initClient(hostname, portNum);
+      initSlave(hostname, portNum);
    else {
       cerr << "Invalid protocol I/O: " << protoIO << endl;
       exit(EXIT_FAILURE);
@@ -57,7 +57,7 @@ int DCCP::openSocket() {
    return socket_num;
 }
 
-void DCCP::initServer(uint16_t portNum) {
+void DCCP::initMaster(uint16_t portNum) {
    struct sockaddr_in address;
 
    /* name the socket */
@@ -76,7 +76,7 @@ void DCCP::initServer(uint16_t portNum) {
    struct sockaddr mySocket;
    socklen_t mySocket_len = sizeof(struct sockaddr);
    getsockname(socket_num, &mySocket, &mySocket_len);
-   cerr << "Server is using port ";
+   cerr << "Client is using port ";
    cerr << ntohs(((struct sockaddr_in *)&mySocket)->sin_port) << endl;
    // XXX end of temp code
 
@@ -88,7 +88,7 @@ void DCCP::initServer(uint16_t portNum) {
 
 }
 
-void DCCP::initClient(string hostname, uint16_t portNum) {
+void DCCP::initSlave(string hostname, uint16_t portNum) {
    struct hostent *theHost;
    struct sockaddr_in address;
    char *hstName;

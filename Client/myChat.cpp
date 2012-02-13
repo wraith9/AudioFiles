@@ -1,4 +1,6 @@
-/** This is a test DCCP server
+/** This is a Voice chat application used to test different network transport
+ * protocols.  More specifically we are wanting to test DCCP and compare it
+ * to UDP and TCP as far as congestion control goes.
  *
  * @author William McVicker
  */
@@ -29,8 +31,8 @@ int main(int argc, char *argv[]) {
       exit(EXIT_FAILURE);
    }
 
-   // Initialize the server
-   theServer = new Server(protocolType, myUID);
+   // Initialize the client  
+   theClient = new Client(protocolType, myUID);
 
    while (true) {
       switch (state) {
@@ -39,32 +41,32 @@ int main(int argc, char *argv[]) {
          do {
             if (select_call(STDIN_FILENO, 0, 0)) {
                state = getUserInput();
-            } else if (theServer->waitForRequests(0))  
+            } else if (theClient->waitForRequests(0))  
                state = ANSWERING_S;
          } while (state == IDLE_S);
          
          break;
       case CALLING_S:
          if ((theCaller = whoToCall())) {
-            theServer->makeCall(theCaller);
+            theClient->makeCall(theCaller);
             state = CHATTING_S;
          } else 
             state = IDLE_S;
 
          break;
       case ANSWERING_S:
-         theServer->acceptNewCall();
+         theClient->acceptNewCall();
          
-         if (theServer->chatting)
+         if (theClient->chatting)
             state = CHATTING_S;
          else 
             state = IDLE_S;
          break;
       case CHATTING_S:
 
-         while (theServer->chatting) {
-            if (theServer->waitForRequests(1)) 
-               theServer->acceptNewCall();
+         while (theClient->chatting) {
+            if (theClient->waitForRequests(1)) 
+               theClient->acceptNewCall();
          }
 
          cout << "Call ended.\n";
@@ -118,7 +120,7 @@ enum CLIENT_STATE getUserInput() {
          req = CALLING_S;
          break;
       case 2: // Quit
-         delete theServer;
+         delete theClient;
          exit(EXIT_SUCCESS);
       }
    }

@@ -2,3 +2,4 @@
 Server/*.pyc
 Server/*.db
 Client/*.o
+Client/myChat

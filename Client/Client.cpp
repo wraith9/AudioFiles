@@ -1,9 +1,9 @@
-/** The DCCP Server code
+/** The DCCP Client code
  *
  * @author William McVicker
  */
 
-#include "Server.h"
+#include "Client.h"
 
 #include <iostream>
 #include <string>
@@ -12,7 +12,7 @@
 /** This constructor specifies which transport protocol to use
  * @param type the type of transport protocol, i.e. DCCP, TCP, or UDP
  */
-Server::Server(enum PROTO_TYPE type, uint32_t theUID) : chatting(false),
+Client::Client(enum PROTO_TYPE type, uint32_t theUID) : chatting(false),
    callerID(0), myUID(theUID) {
 
       switch (type) {
@@ -32,20 +32,20 @@ Server::Server(enum PROTO_TYPE type, uint32_t theUID) : chatting(false),
 
    }
 
-/** Server destructor */
-Server::~Server() {
+/** Client destructor */
+Client::~Client() {
 
    delete clientProtocol;
    delete serverProtocol;
 }
 
-int Server::waitForRequests(int seconds) {
+int Client::waitForRequests(int seconds) {
 
    return serverProtocol->waitForRequests(seconds);
 }
 
 /** Accepts the new call by starting a calling thread. */
-void Server::acceptNewCall() {
+void Client::acceptNewCall() {
    std::string toAccept = "";
    boost::posix_time::milliseconds noTime(0);
 
@@ -73,7 +73,7 @@ void Server::acceptNewCall() {
    } else {
       serverProtocol->answerCall();
       m_thread = boost::shared_ptr<boost::thread>(
-            new boost::thread(boost::bind(&Server::startChat, this, 
+            new boost::thread(boost::bind(&Client::startChat, this, 
             serverProtocol)));
    }
 }
@@ -81,7 +81,7 @@ void Server::acceptNewCall() {
 /** Tries to call a friend
  * @param friendId the friend to call
  */
-void Server::makeCall(uint32_t friendId) {
+void Client::makeCall(uint32_t friendId) {
 
    friendPort = getFriendPort(friendId);
    theHost = getHostname(friendId);
@@ -98,7 +98,7 @@ void Server::makeCall(uint32_t friendId) {
    connectToFriend();
 }
 
-void Server::connectToFriend() {
+void Client::connectToFriend() {
    packet initPacket;
    int status;
 
@@ -127,7 +127,7 @@ void Server::connectToFriend() {
       m_thread->join();
 
    m_thread = boost::shared_ptr<boost::thread>(
-         new boost::thread(boost::bind(&Server::startChat, this, 
+         new boost::thread(boost::bind(&Client::startChat, this, 
          clientProtocol)));
 }
 
@@ -136,7 +136,7 @@ void Server::connectToFriend() {
  * @param friendId the id of the friend you want to chat with
  * @return the port of your friend's computer
  */
-uint16_t Server::getFriendPort(uint32_t friendId) {
+uint16_t Client::getFriendPort(uint32_t friendId) {
 
    // get the port # from the server db
 
@@ -159,7 +159,7 @@ uint16_t Server::getFriendPort(uint32_t friendId) {
  * @param friendId the id of the friend you want to chat with
  * @return a string containing the hostname of your friend's computer
  */
-string Server::getHostname(uint32_t friendId) {
+string Client::getHostname(uint32_t friendId) {
 
    // get the hostname from the server db
 
@@ -175,14 +175,14 @@ string Server::getHostname(uint32_t friendId) {
 }
 
 /** Stops the current call by ending the calling thread. */
-void Server::endCall() {
+void Client::endCall() {
 
    assert(m_thread);
    m_thread->join();
 }
 
 /** Start of a new thread -- Accepts an incoming request */
-void Server::startChat(TransProtocol *commProtocol) {
+void Client::startChat(TransProtocol *commProtocol) {
    packet ourPacket;
    packet theirPacket;
    int status;
@@ -214,7 +214,7 @@ void Server::startChat(TransProtocol *commProtocol) {
          break;
       }
 
-      //boost::this_thread::sleep(sleep_time);
+      boost::this_thread::sleep(sleep_time);
    }
 
    cout << "Call ended.\n";

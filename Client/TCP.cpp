@@ -20,9 +20,9 @@ TCP::TCP(enum PROTO_IO protoIO, string hostname, uint16_t portNum) {
 
    openSocket();
    if (protoIO == SERVER_IO)
-      initServer(portNum);
+      initMaster(portNum);
    else if (protoIO == CLIENT_IO)
-      initClient(hostname, portNum);
+      initSlave(hostname, portNum);
    else {
       std::cerr << "Invalid protocol I/O: " << protoIO << std::endl;
       exit(EXIT_FAILURE);
@@ -57,7 +57,7 @@ int TCP::openSocket() {
    return socket_num;
 }
 
-void TCP::initServer(uint16_t portNum) {
+void TCP::initMaster(uint16_t portNum) {
    struct sockaddr_in address;
 
    /* name the socket */
@@ -80,7 +80,7 @@ void TCP::initServer(uint16_t portNum) {
 
 }
 
-void TCP::initClient(string hostname, uint16_t portNum) {
+void TCP::initSlave(string hostname, uint16_t portNum) {
    struct hostent *theHost;
    struct sockaddr_in address;
    char *hstName;

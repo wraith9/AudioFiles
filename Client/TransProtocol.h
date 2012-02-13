@@ -38,8 +38,8 @@ class TransProtocol {
       int client_socket;
       int temp_socket;
       virtual int openSocket() =0;
-      virtual void initServer(uint16_t portNum) =0;
-      virtual void initClient(string hostname, uint16_t portNum) =0;
+      virtual void initMaster(uint16_t portNum) =0;
+      virtual void initSlave(string hostname, uint16_t portNum) =0;
 
 };
 

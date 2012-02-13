@@ -3,8 +3,8 @@
  * @author William McVicker
  */
 
-#ifndef SERVER_H
-#define SERVER_H
+#ifndef CLIENT_H 
+#define CLIENT_H
 
 
 #include <stdio.h> // for perror
@@ -25,10 +25,10 @@
 
 using namespace std;
 
-class Server {
+class Client {
    public:
-      Server(enum PROTO_TYPE type, uint32_t theUID);
-      ~Server();
+      Client(enum PROTO_TYPE type, uint32_t theUID);
+      ~Client();
 
       int waitForRequests(int seconds);
       void acceptNewCall();

@@ -30,8 +30,8 @@ class TCP : public TransProtocol {
 
    protected:
       int openSocket();
-      void initServer(uint16_t portNum);
-      void initClient(string hostname, uint16_t portNum);
+      void initMaster(uint16_t portNum);
+      void initSlave(string hostname, uint16_t portNum);
 
 };
 
