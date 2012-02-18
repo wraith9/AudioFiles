@@ -23,6 +23,7 @@ class TransProtocol {
       int waitForResponse(int seconds);
       int waitForRequests(int seconds);
       int waitForRequestsOrInput(int seconds);
+      uint16_t getPortNum();
 
       virtual int sendPacket(const void *buf, size_t len,
             int flags) =0;

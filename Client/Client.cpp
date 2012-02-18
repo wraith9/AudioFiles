@@ -29,13 +29,6 @@ Client::~Client() {
 
 bool Client::loginToServer(login_data loginData) {
 
-   if (!connectToServer(loginData)) 
-      return false;
-
-   // Start update request daemon
-   m_updateThread = boost::shared_ptr<boost::thread>(
-         new boost::thread(boost::bind(&Client::theUpdateDaemon, this))); 
-
    switch (myType) {
    case DCCP_T:
       masterProtocol = new DCCP(SERVER_IO, "", 0);
@@ -50,6 +43,16 @@ bool Client::loginToServer(login_data loginData) {
       cout << "Invalid option: " << myType << endl;
       exit(EXIT_FAILURE);
    }
+
+   // inject the master protocol port number
+   loginData.clientPort = htons(masterProtocol->getPortNum());
+
+   if (!connectToServer(loginData)) 
+      return false;
+
+   // Start update request daemon
+   m_updateThread = boost::shared_ptr<boost::thread>(
+         new boost::thread(boost::bind(&Client::theUpdateDaemon, this))); 
 
    return true;
 }
@@ -84,7 +87,8 @@ bool Client::connectToServer(login_data loginData) {
       perror("recvPacket()");
       cerr << "Failed to connect to the server\n";
       return false;
-   }
+   } else if (responseVal == 0) // socket has been closed
+      return false;
    
    if (loginPacket.type == LOGIN_ACK_T) {
       myUID = ntohl(loginPacket.uid);
@@ -138,6 +142,7 @@ void Client::acceptNewCall() {
       callerID = 0;
    } else {
       masterProtocol->answerCall();
+      chatting = true;
       m_thread = boost::shared_ptr<boost::thread>(
             new boost::thread(boost::bind(&Client::startChat, this, 
             masterProtocol)));
@@ -204,8 +209,6 @@ void Client::startChat(TransProtocol *commProtocol) {
    int status;
    boost::posix_time::milliseconds sleep_time(50);
 
-   chatting = true;
-
    ourPacket.uid = htonl(myUID);
    ourPacket.type = AUDIO_DATA_T;
    strcpy((char *) ourPacket.data, "This data is from the server!!\n\0");
@@ -218,7 +221,8 @@ void Client::startChat(TransProtocol *commProtocol) {
          if (status < 0) {
             perror("recvPacket()");
             break;
-         }
+         } else if (status == 0) // socket has been closed
+            break;
 
          if (theirPacket.type == AUDIO_DATA_T) 
             cout << theirPacket.data;

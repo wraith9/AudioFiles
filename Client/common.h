@@ -47,6 +47,7 @@ enum REQUEST {INCOMING_REQ, OUTGOING_REQ, INVALID_REQ};
 struct login_data {
    char username[USERNAME_LEN];
    char password[PASSWORD_LEN];
+   uint16_t clientPort;
 } __attribute__((__packed__));
 
 struct friendList_data {

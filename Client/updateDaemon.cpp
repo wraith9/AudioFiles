@@ -34,6 +34,9 @@ void Client::theUpdateDaemon() {
       if (retval < 0) {
          perror("updateDaemon: recvPacket()");
          continue;
+      } else if (retval == 0) { // connection has been shutdown
+         cout << "Update Daemon exitting.\n";
+         return;
       }
 
       if (updatePacket.type != STATUS_UPDATES_T) {

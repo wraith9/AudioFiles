@@ -72,13 +72,9 @@ void DCCP::initMaster(uint16_t portNum) {
       exit(EXIT_FAILURE);
    }
 
-   // XXX Print the port number chosen
-   struct sockaddr mySocket;
-   socklen_t mySocket_len = sizeof(struct sockaddr);
-   getsockname(socket_num, &mySocket, &mySocket_len);
-   cerr << "Client is using port ";
-   cerr << ntohs(((struct sockaddr_in *)&mySocket)->sin_port) << endl;
-   // XXX end of temp code
+#ifdef DEBUG
+   getPortNum();
+#endif
 
    if (listen(socket_num, MAX_DCCP_CONNECTION_BACK_LOG) == -1) {
       perror("listen()");
@@ -137,9 +133,8 @@ int DCCP::recvPacket(void *buf, size_t len, int flags) {
    int retVal = recv(client_socket, buf, len, flags);
 
 #ifdef DEBUG
-   if (retVal) {
+   if (retVal)
       PRINT_PACKET(*((packet *) buf));
-   }
 #endif
 
    return retVal;

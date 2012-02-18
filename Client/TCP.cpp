@@ -72,13 +72,9 @@ void TCP::initMaster(uint16_t portNum) {
       exit(EXIT_FAILURE);
    }
 
-   // XXX Print the port number chosen
-   struct sockaddr mySocket;
-   socklen_t mySocket_len = sizeof(struct sockaddr);
-   getsockname(socket_num, &mySocket, &mySocket_len);
-   cerr << "Client is using port ";
-   cerr << ntohs(((struct sockaddr_in *)&mySocket)->sin_port) << endl;
-   // XXX end of temp code
+#ifdef DEBUG
+   getPortNum();
+#endif
 
    if (listen(socket_num, SOMAXCONN) == -1) {
       perror("listen()");
@@ -167,7 +163,7 @@ uint32_t TCP::getCallerID() {
       } else if (rec_size != sizeof(packet)) {
          perror("recv()");
       } else {
-         return initPacket.uid;
+         return ntohl(initPacket.uid);
       }
    }
 
