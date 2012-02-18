@@ -8,7 +8,7 @@ from struct import Struct
 from common import BUFSIZE
 
 pktFormat = Struct('!IBH')
-clFormat = Struct('!20s20s')
+clFormat = Struct('!20s20sH')
 flEntryFormat = Struct("!20sI")
 carFormat = Struct("!I")
 carOutFormat = Struct("!IH")

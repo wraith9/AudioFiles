@@ -71,7 +71,7 @@ class RequestHandler:
     '''
     def handle_login(self, req):
         try:
-            (username, pw), _ = decode(clFormat, req)
+            (username, pw, dccpPort), _ = decode(clFormat, req)
         except error:
             return errorPacket(e_invalidloginformat)
         
@@ -89,7 +89,7 @@ class RequestHandler:
         #     return loginDuplicateAck
         if pw_hash == digest:
             self.userID = userID
-            onlineClients[userID] = (self.addr, self.sock)
+            onlineClients[userID] = (self.addr, dccpPort)
             return self.init_friendlist_packet()
         
         return errorPacket(e_invalid_pw)
