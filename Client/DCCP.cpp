@@ -96,7 +96,6 @@ void DCCP::initSlave(string hostname, uint16_t portNum) {
    hstName = new char[hostname.length()+1];
    strcpy(hstName, hostname.c_str());
 
-
    if (NULL == (theHost = gethostbyname(hstName))) {
       cerr << "gethostbyname(): " << strerror(h_errno) << endl;
       return;
@@ -105,8 +104,7 @@ void DCCP::initSlave(string hostname, uint16_t portNum) {
    address.sin_family = AF_INET;
    address.sin_port = htons(portNum);
 
-   if (connect(socket_num, (struct sockaddr *) &address, 
-            sizeof(address)) < 0) {
+   if (connect(socket_num, (struct sockaddr *) &address, sizeof(address)) < 0) {
       perror("connect()");
       exit(EXIT_FAILURE);
    }
@@ -136,8 +134,15 @@ int DCCP::sendPacket(const void *buf, size_t len, int flags) {
  * @return the number of bytes received. On error, -1 is returned
  */
 int DCCP::recvPacket(void *buf, size_t len, int flags) {
+   int retVal = recv(client_socket, buf, len, flags);
 
-   return recv(client_socket, buf, len, flags);
+#ifdef DEBUG
+   if (retVal) {
+      PRINT_PACKET(*((packet *) buf));
+   }
+#endif
+
+   return retVal;
 }
 
 /** Identifies who is calling 
@@ -148,21 +153,14 @@ uint32_t DCCP::getCallerID() {
    int status, rec_size;
    packet initPacket;
 
-   cerr << "Entered CallerID\n";
-
    temp_socket = accept(socket_num, NULL, NULL);
    if (temp_socket < 0) {
       perror("accept()");
       return 0;
    }
 
-   cerr << "Accepted the called!\n";
-
-   status = select_call(temp_socket, INIT_TIMEOUT, 0);
+   status = select_call(&temp_socket, 1, INIT_TIMEOUT, 0);
    if (status) {
-
-      cerr << "recieving the call!\n";
-
       rec_size = recv(temp_socket, (void *) &initPacket, sizeof(packet), 0);
       if (rec_size == 0) {
          // session was shutdown
@@ -170,7 +168,7 @@ uint32_t DCCP::getCallerID() {
       } else if (rec_size != sizeof(packet)) {
          perror("recv()");
       } else {
-         return initPacket.uid;
+         return ntohl(initPacket.uid);
       }
    }
 

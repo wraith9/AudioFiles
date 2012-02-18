@@ -8,64 +8,73 @@
 #include <stdlib.h>
 #include <iostream>
 #include <string>
+#include <string.h>
 
 #include "myChat.h"
 
 using namespace std;
 
 int main(int argc, char *argv[]) {
-   enum CLIENT_STATE state = IDLE_S;
    enum PROTO_TYPE protocolType;
-   uint32_t theCaller = 0;
-   uint32_t myUID = 0;
 
-   if (argc > 1 && argc < 4) {
+   if (argc == 2)
       protocolType = (enum PROTO_TYPE) atoi(argv[1]);
-      
-      if (argc == 3)
-         myUID = (uint32_t) atoi(argv[2]);
-      else
-         myUID = 1;
-   } else {
+   else {
       helpMenu();
       exit(EXIT_FAILURE);
    }
 
-   // Initialize the client  
-   theClient = new Client(protocolType, myUID);
+   // Initialize the client
+   theClient = new Client(protocolType);
+
+   loginScreen();
+
+   startStateMachine();
+
+   return EXIT_FAILURE; // never should exit
+}
+
+/** The main loop that handles the behavior of this application.  The structure
+ * is built as a state machine.
+ */
+void startStateMachine() {
+   enum CLIENT_STATE state = IDLE_S;
+   uint32_t theCaller = 0;
 
    while (true) {
       switch (state) {
       case IDLE_S:
          printMenu();
          do {
-            if (select_call(STDIN_FILENO, 0, 0)) {
-               state = getUserInput();
-            } else if (theClient->waitForRequests(0))  
-               state = ANSWERING_S;
+            int theFD;
+            if ((theFD = theClient->waitForRequestsOrInput(10))) {
+               if ((theFD-1) == STDIN_FILENO)
+                  state = getUserInput();
+               else 
+                  state = ANSWERING_S;
+            }
          } while (state == IDLE_S);
-         
          break;
       case CALLING_S:
          if ((theCaller = whoToCall())) {
             theClient->makeCall(theCaller);
             state = CHATTING_S;
-         } else 
+         } else
             state = IDLE_S;
 
          break;
       case ANSWERING_S:
          theClient->acceptNewCall();
-         
+
          if (theClient->chatting)
             state = CHATTING_S;
-         else 
+         else
             state = IDLE_S;
          break;
       case CHATTING_S:
 
          while (theClient->chatting) {
-            if (theClient->waitForRequests(1)) 
+            if (theClient->waitForRequests(1))
                theClient->acceptNewCall();
          }
 
@@ -78,7 +87,45 @@ int main(int argc, char *argv[]) {
       }
    }
 
-   return EXIT_FAILURE; // never should exit
+}
+
+void loginScreen() {
+   login_data loginData;
+   string username((size_t) USERNAME_LEN, '\0');
+   string password((size_t) PASSWORD_LEN, '\0');
+
+   memset((void *) &loginData, 0, USERNAME_LEN + PASSWORD_LEN);
+
+   for (int i = 0; i < 5; i++) {
+      while (true) {
+         cout << "username: ";
+         try {
+            getline(cin, username);
+            break;
+         } catch (ios_base::failure e) {
+            cerr << "invalid username: maximum of 20 characters allowed.\n";
+         }
+      }
+
+      while (true) {
+         cout << "password: ";
+         try {
+            getline(cin, password);
+            break;
+         } catch (ios_base::failure e) {
+            cerr << "invalid password: maximum of 20 characters allowed.\n";
+         }
+      }
+
+      strncpy(loginData.username, username.c_str(), USERNAME_LEN);
+      strncpy(loginData.password, password.c_str(), PASSWORD_LEN);
+
+      if (theClient->loginToServer(loginData))
+         return;
+   }
+
+   cout << "Login failed\n";
+   exit(EXIT_FAILURE);
 }
 
 /** Prints the help menu */
@@ -96,11 +143,13 @@ void helpMenu() {
 /** Gives the user choices on what to do */
 void printMenu() {
 
-   cout << "\nWelcome to Audio Chatter! ))) --- (((\n";
+   cout << "\nWelcome " << theClient->whoAmI();
+   cout << " to Audio Chatter! ))) --- (((\n";
+
    cout << "\nChoose one of the following options:\n";
    cout << "\t1: Call a friend\n";
    cout << "\t2: Quit\n";
-   
+
 }
 
 /** Gets the response from the user on what he/she wants to do.
@@ -131,7 +180,7 @@ enum CLIENT_STATE getUserInput() {
    return req;
 }
 
-/** Asks the user which friend to call.  
+/** Asks the user which friend to call.
  *
  * @return the uid of the friend to call, 0 when the user doesn't want to
  * call anyone.
@@ -142,9 +191,10 @@ uint32_t whoToCall() {
    char firstChar;
 
    cout << "Who would you like to call?\n";
-   printFriendList();
+   theClient->printFriendList();
+   cout << "\tX: Return to main menu\n";
 
-   while (true) {   
+   while (true) {
       getline(cin, input);
       try {
          firstChar = input.at(0);
@@ -156,39 +206,12 @@ uint32_t whoToCall() {
          return 0;
       else {
          stringstream myStream(input);
-         if ((myStream >> uid) && verifyId(uid)) 
+         if ((myStream >> uid) && theClient->verifyId(uid))
             break;
-         else 
+         else
             cerr << "Invalid option, try again: ";
       }
-   } 
+   }
 
    return uid;
-}
-
-/** Prints the user's friends list as a menu */
-void printFriendList() {
-
-   cout << "\t1: Friend1\n";
-   cout << "\t2: Friend2\n";
-   cout << "\t3: Friend3\n";
-
-   cout << "\tX: Return to main menu\n";
-}
-
-/** Checks the friend database to verify the provided
- * user id is valid.
- *
- * @param uid the user id of interest
- * @return true if the user is friends with uid, else false
- */
-bool verifyId(uint32_t uid) {
-
-   // check friends database to verify this uid is valid
-
-   if (uid > 0 && uid < 4)
-      return true;
-   else
-      return false;
-
 }

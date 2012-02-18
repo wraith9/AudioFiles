@@ -24,7 +24,7 @@ TCP::TCP(enum PROTO_IO protoIO, string hostname, uint16_t portNum) {
    else if (protoIO == CLIENT_IO)
       initSlave(hostname, portNum);
    else {
-      std::cerr << "Invalid protocol I/O: " << protoIO << std::endl;
+      cerr << "Invalid protocol I/O: " << protoIO << endl;
       exit(EXIT_FAILURE);
    }
 }
@@ -47,7 +47,7 @@ int TCP::openSocket() {
       return -1;
    }
 
-   reuseport = 1;
+   reuseport = 0;
    if (setsockopt(socket_num, SOL_SOCKET, SO_REUSEADDR,
             (const char *) &reuseport, sizeof(reuseport)) < 0) {
       perror("setsockopt");
@@ -63,7 +63,7 @@ void TCP::initMaster(uint16_t portNum) {
    /* name the socket */
    address.sin_family = AF_INET;
    address.sin_addr.s_addr = INADDR_ANY;
-   address.sin_port = htons(7777);
+   address.sin_port = htons(portNum);
 
    /* bind the socket to a port */
    if (bind(socket_num, (struct sockaddr *) &address, sizeof(address)) < 0) {
@@ -71,6 +71,14 @@ void TCP::initMaster(uint16_t portNum) {
       close(socket_num);
       exit(EXIT_FAILURE);
    }
+
+   // XXX Print the port number chosen
+   struct sockaddr mySocket;
+   socklen_t mySocket_len = sizeof(struct sockaddr);
+   getsockname(socket_num, &mySocket, &mySocket_len);
+   cerr << "Client is using port ";
+   cerr << ntohs(((struct sockaddr_in *)&mySocket)->sin_port) << endl;
+   // XXX end of temp code
 
    if (listen(socket_num, SOMAXCONN) == -1) {
       perror("listen()");
@@ -88,7 +96,10 @@ void TCP::initSlave(string hostname, uint16_t portNum) {
    hstName = new char[hostname.length()+1];
    strcpy(hstName, hostname.c_str());
 
-   theHost = gethostbyname(hstName);
+   if (NULL == (theHost = gethostbyname(hstName))) {
+      cerr << "gethostbyname(): " << strerror(h_errno) << endl;
+      return;
+   }
    memcpy(&address.sin_addr, theHost->h_addr, theHost->h_length);
    address.sin_family = AF_INET;
    address.sin_port = htons(portNum);
@@ -97,9 +108,10 @@ void TCP::initSlave(string hostname, uint16_t portNum) {
       perror("connect()");
       exit(EXIT_FAILURE);
    }
+   
+   client_socket = socket_num;
 
    delete[] hstName; // cleanup after yourself
-
 }
 
 /** Sends a packet over the TCP socket 
@@ -122,8 +134,14 @@ int TCP::sendPacket(const void *buf, size_t len, int flags) {
  * @return the number of bytes received. On error, -1 is returned
  */
 int TCP::recvPacket(void *buf, size_t len, int flags) {
+   int retVal = recv(client_socket, buf, len, flags);
 
-   return recv(client_socket, buf, len, flags);
+#ifdef DEBUG
+   if (retVal)
+      PRINT_PACKET(*((packet *) buf));
+#endif
+
+   return retVal;
 }
 
 /** Identifies who is calling 
@@ -140,12 +158,12 @@ uint32_t TCP::getCallerID() {
       return 0;
    }
 
-   status = select_call(temp_socket, INIT_TIMEOUT, 0);
+   status = select_call(&temp_socket, 1, INIT_TIMEOUT, 0);
    if (status) {
       rec_size = recv(temp_socket, (void *) &initPacket, sizeof(packet), 0);
       if (rec_size == 0) {
          // session was shutdown
-         std::cout << "Call ended\n";
+         cout << "Call ended\n";
       } else if (rec_size != sizeof(packet)) {
          perror("recv()");
       } else {

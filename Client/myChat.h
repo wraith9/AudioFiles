@@ -14,12 +14,14 @@ enum CLIENT_STATE {
    ANSWERING_S,
    CHATTING_S,
 };
-   
+
+void loginScreen();
+void startStateMachine();
+
 void printMenu(); 
 void helpMenu();
 enum CLIENT_STATE getUserInput();
 
-void printFriendList();
 uint32_t whoToCall();
 bool verifyId(uint32_t uid);
 

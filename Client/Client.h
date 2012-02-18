@@ -3,7 +3,7 @@
  * @author William McVicker
  */
 
-#ifndef CLIENT_H 
+#ifndef CLIENT_H
 #define CLIENT_H
 
 
@@ -22,33 +22,49 @@
 #include "TCP.h"
 
 #include <string>
+#include <map>
 
 using namespace std;
 
+
 class Client {
    public:
-      Client(enum PROTO_TYPE type, uint32_t theUID);
+      Client(enum PROTO_TYPE type);
       ~Client();
 
       int waitForRequests(int seconds);
+      int waitForRequestsOrInput(int seconds);
       void acceptNewCall();
       void makeCall(uint32_t friendId);
       void endCall();
-      
-      char friendsName[1024];
+      bool loginToServer(login_data loginData);
+      string whoAmI();
+
+      // Friends list stuff
+      void printFriendList();
+      bool verifyId(uint32_t uid);
+
       volatile bool chatting;
       uint32_t callerID;
+      map<uint32_t, friend_list> myFriends;
 
    private:
       void startChat(TransProtocol *commProtocol);
       uint16_t getFriendPort(uint32_t friendId);
       string getHostname(uint32_t friendId);
       void connectToFriend();
-     
+      bool connectToServer(login_data loginData);
+      void extractFriends(friendList_data *data, uint16_t dlength);
+
+      void theUpdateDaemon();
+
+      enum PROTO_TYPE myType;
       uint32_t myUID;
-      TransProtocol *serverProtocol;
-      TransProtocol *clientProtocol;
+      TransProtocol *masterProtocol;
+      TransProtocol *slaveProtocol;
+      TransProtocol *mainServer;
       boost::shared_ptr<boost::thread> m_thread;
+      boost::shared_ptr<boost::thread> m_updateThread;
 
       // temporary variables till be get friend db
       uint16_t friendPort;

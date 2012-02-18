@@ -2,10 +2,10 @@
 
 #include "TransProtocol.h"
 
-TransProtocol::TransProtocol(): socket_num(-1), client_socket(-1), 
+TransProtocol::TransProtocol(): socket_num(-1), client_socket(-1),
    temp_socket(-1) {
-   
-}
+
+   }
 
 TransProtocol& TransProtocol::operator=(const TransProtocol &right) {
 
@@ -23,11 +23,21 @@ TransProtocol& TransProtocol::operator=(const TransProtocol &right) {
  */
 int TransProtocol::waitForRequests(int seconds) {
 
-   return select_call(socket_num, seconds, 0);
+   return select_call(&socket_num, 1, seconds, 0);
 }
 
 
 int TransProtocol::waitForResponse(int seconds) {
-
-   return select_call(client_socket, seconds, 0);
+   
+   return select_call(&client_socket, 1, seconds, 0);
 }
+
+int TransProtocol::waitForRequestsOrInput(int seconds) {
+   int myFds[2];
+
+   myFds[0] = STDIN_FILENO;
+   myFds[1] = socket_num;
+
+   return select_call(myFds, 2, seconds, 0);
+}
+

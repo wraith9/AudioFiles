@@ -8,13 +8,16 @@ ALL = myChat
 
 all: $(ALL)
 
-myChat: myChat.o Client.o TransProtocol.o DCCP.o TCP.o util.o
+myChat: myChat.o Client.o updateDaemon.o TransProtocol.o DCCP.o TCP.o util.o
 	$(CC) -o $@ $^ $(LIBS) 
 
 myChat.o: myChat.cpp myChat.h Client.h
 	$(CC) $(CFLAGS) -c $< $(LIBS)
 
 Client.o: Client.cpp Client.h common.h TransProtocol.h DCCP.h TCP.h
+	$(CC) $(CFLAGS) -c $< $(LIBS)
+
+updateDaemon.o: updateDaemon.cpp Client.h
 	$(CC) $(CFLAGS) -c $< $(LIBS)
 
 TransProtocol.o: TransProtocol.cpp TransProtocol.h common.h

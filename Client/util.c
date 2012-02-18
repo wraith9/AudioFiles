@@ -11,24 +11,40 @@
 #include <sys/types.h>
 #include <unistd.h>
 
-
-int select_call(int socket_num, int seconds, int useconds) {
-   int retval;
+/** 
+ *
+ * @return the file descriptor that triggered plus one
+ */
+int select_call(int *socket_num, int numSockets, int seconds, int useconds) {
+   int retval, maxFD = -1;
    fd_set rfds;
    struct timeval tv;
 
    FD_ZERO(&rfds);
-   FD_SET(socket_num, &rfds);
+
+   for (int i = 0; i < numSockets; i++) {
+      maxFD = (maxFD < socket_num[i]) ? socket_num[i] : maxFD;
+      FD_SET(socket_num[i], &rfds);
+   }
 
    tv.tv_sec = seconds;
    tv.tv_usec = useconds;
 
-   retval = select(socket_num+1, &rfds, NULL, NULL, &tv);
+   retval = select(maxFD+1, &rfds, NULL, NULL, &tv);
    if (retval == -1) {
       perror("select()");
-      close(socket_num);
+      for (int i = 0; i < numSockets; i++) {
+         if (socket_num[i] > 2) // don't close stdin, stdout, or stderr
+            close(socket_num[i]);
+      }
       exit(EXIT_FAILURE);
+   } else if (retval == 0)
+      return 0;
+
+   for (int i = 0; i < numSockets; i++) {
+      if (FD_ISSET(socket_num[i], &rfds)) 
+         return socket_num[i] + 1;
    }
 
-   return retval;
+   return 0;
 }

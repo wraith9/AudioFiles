@@ -22,6 +22,7 @@ class TransProtocol {
 
       int waitForResponse(int seconds);
       int waitForRequests(int seconds);
+      int waitForRequestsOrInput(int seconds);
 
       virtual int sendPacket(const void *buf, size_t len,
             int flags) =0;
