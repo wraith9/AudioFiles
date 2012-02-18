@@ -7,7 +7,7 @@ Created on Feb 4, 2012
 from structlib import *
 from common import *
 from struct import error
-from itertools import izip_longest
+from itertools import izip_longest, starmap
 import threading
 import hashlib
 import dao
@@ -21,21 +21,25 @@ def runUpdateDaemon():
             onlineFriends[userID] = set([])
         
         friendListUpdate = set([])
+        friendListOffline = set([])
         fullFriendList = updateDao.getFriends(userID)
         for (_, friendID) in fullFriendList:
             if friendID in onlineClients:
                 friendListUpdate.add(friendID)
+            else:
+                friendListOffline.add(friendID)
         # Build lists (actually sets) of friends who went offline or online
         # Offline: Friend exists in old list but not in new one
         # Online: Friend exists in new list but not in old one
-        offlinelist = onlineFriends[userID] - (onlineFriends[userID] & friendListUpdate)
+        offlinelist = onlineFriends[userID] & friendListOffline
         onlinelist = friendListUpdate - (onlineFriends[userID] & friendListUpdate)
         
         # Creating the actual data to send -- this uses some craziness with mapping functions
         # Basically, the first line does the offline list, and the second does the online one
-        payload = ''.join(map(upFormat.pack, list(izip_longest(offlinelist, '', fillvalue=0))))
-        payload = payload + ''.join(map(upFormat.pack, list(izip_longest(onlinelist, '', fillvalue=1))))
+        payload = ''.join(starmap(upFormat.pack, list(izip_longest(offlinelist, '', fillvalue=0))))
+        payload = payload + ''.join(starmap(upFormat.pack, list(izip_longest(onlinelist, '', fillvalue=1))))
         
+        onlineFriends[userID] = onlinelist
         (_, sock, _) = onlineClients[userID]
         sock.send(padToSize(pktFormat.pack(0, r_status_update, len(payload)) + payload, BUFSIZE))
     del updateDao
