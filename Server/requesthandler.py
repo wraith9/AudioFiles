@@ -15,12 +15,13 @@ import dao
 dbdao = dao.dao()
 
 def runUpdateDaemon():
+    updateDao = dao.dao()
     for userID in onlineClients.keys():
         if not userID in onlineFriends:
             onlineFriends[userID] = set([])
         
         friendListUpdate = set([])
-        fullFriendList = dbdao.getFriends(userID)
+        fullFriendList = updateDao.getFriends(userID)
         for (_, friendID) in fullFriendList:
             if friendID in onlineClients:
                 friendListUpdate.add(friendID)
@@ -37,6 +38,7 @@ def runUpdateDaemon():
         
         (_, sock, _) = onlineClients[userID]
         sock.send(padToSize(pktFormat.pack(0, r_status_update, len(payload)) + payload, BUFSIZE))
+    del updateDao
     threading.Timer(UPDATE_INTERVAL, runUpdateDaemon).start()
 
 class RequestHandler:

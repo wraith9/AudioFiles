@@ -42,7 +42,7 @@ class ChatServer(asyncore.dispatcher):
         '''
         asyncore.dispatcher.__init__(self)
         
-        threading.Timer(UPDATE_INTERVAL, runUpdateDaemon)
+        threading.Timer(UPDATE_INTERVAL, runUpdateDaemon).start()
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind((host, port))
