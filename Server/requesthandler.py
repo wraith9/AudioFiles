@@ -35,7 +35,7 @@ def runUpdateDaemon():
         payload = ''.join(map(upFormat.pack, list(izip_longest(offlinelist, '', fillvalue=0))))
         payload = payload + ''.join(map(upFormat.pack, list(izip_longest(onlinelist, '', fillvalue=1))))
         
-        (_, sock) = onlineClients[userID]
+        (_, sock, _) = onlineClients[userID]
         sock.send(padToSize(pktFormat.pack(0, r_status_update, len(payload)) + payload, BUFSIZE))
     threading.Timer(UPDATE_INTERVAL, runUpdateDaemon).start()
 
@@ -84,12 +84,13 @@ class RequestHandler:
         (userID, username, pw_hash, pw_salt) = info
         pw = pw.replace(chr(0), '')
         digest = hashlib.sha512(pw + pw_salt).hexdigest()
-        # TODO: stop a client from logging in twice
-        # if userID in onlineClients:
-        #     return loginDuplicateAck
+
+        # preventing duplicate logins
+        if userID in onlineClients:
+           return errorPacket(e_login_dup)
         if pw_hash == digest:
             self.userID = userID
-            onlineClients[userID] = (self.addr, dccpPort)
+            onlineClients[userID] = (self.addr, self.sock, dccpPort)
             return self.init_friendlist_packet()
         
         return errorPacket(e_invalid_pw)
@@ -114,7 +115,7 @@ class RequestHandler:
         if not friendID in onlineClients:
             return errorPacket(e_not_logged_in)
         
-        (addr, port), _ = onlineClients[friendID]
+        (addr, _, port), _ = onlineClients[friendID]
         payload = carOutFormat.pack(toIntVal(addr), port)
         return padToSize(pktFormat.pack(0, r_request_addr, len(payload)) + payload, BUFSIZE)
     

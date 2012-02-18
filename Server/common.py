@@ -16,6 +16,7 @@ r_login_failed = 0x3
 r_status_update = 0x5
 r_request_addr = 0x8
 
+e_login_dup = 0x11
 e_not_a_friend = 0x12
 e_not_logged_in = 0x13
 e_invalidloginformat = 0x14
