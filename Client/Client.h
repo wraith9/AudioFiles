@@ -26,6 +26,7 @@
 
 using namespace std;
 
+#define SAFE_EXIT(x) { closeAllConnections(); exit(x); }
 
 class Client {
    public:
@@ -55,14 +56,21 @@ class Client {
       void connectToFriend();
       bool connectToServer(login_data loginData);
       void extractFriends(friendList_data *data, uint16_t dlength);
+      void closeAllConnections();
+      void printErrMsg(string header, uint8_t server_errno);
+      void initPacketHeader(packet *thePacket, uint32_t uid, uint8_t type, 
+         uint16_t dlength);
+
 
       void theUpdateDaemon();
+      bool initDaemon();
 
       enum PROTO_TYPE myType;
       uint32_t myUID;
       TransProtocol *masterProtocol;
       TransProtocol *slaveProtocol;
       TransProtocol *mainServer;
+      TransProtocol *daemonProtocol;
       boost::shared_ptr<boost::thread> m_thread;
       boost::shared_ptr<boost::thread> m_updateThread;
 

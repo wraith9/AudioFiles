@@ -78,8 +78,6 @@ void startStateMachine() {
                theClient->acceptNewCall();
          }
 
-         cout << "Call ended.\n";
-
          state = IDLE_S;
          break;
       default:
