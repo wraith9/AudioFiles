@@ -130,14 +130,8 @@ int DCCP::sendPacket(const void *buf, size_t len, int flags) {
  * @return the number of bytes received. On error, -1 is returned
  */
 int DCCP::recvPacket(void *buf, size_t len, int flags) {
-   int retVal = recv(client_socket, buf, len, flags);
-
-#ifdef DEBUG
-   if (retVal)
-      PRINT_PACKET(*((packet *) buf));
-#endif
-
-   return retVal;
+   
+   return recv(client_socket, buf, len, flags);
 }
 
 /** Identifies who is calling 
@@ -159,7 +153,9 @@ uint32_t DCCP::getCallerID() {
       rec_size = recv(temp_socket, (void *) &initPacket, sizeof(packet), 0);
       if (rec_size == 0) {
          // session was shutdown
-         cout << "Call ended\n";
+#ifdef DEBUG
+         cerr << "getCallerID: temp_socket shutdown\n";
+#endif
       } else if (rec_size != sizeof(packet)) {
          perror("recv()");
       } else {

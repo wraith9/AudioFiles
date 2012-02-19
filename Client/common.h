@@ -23,16 +23,6 @@ enum PROTO_TYPE {DCCP_T, UDP_T, TCP_T};
 enum PROTO_IO {SERVER_IO, CLIENT_IO};
 enum REQUEST {INCOMING_REQ, OUTGOING_REQ, INVALID_REQ};
 
-/*enum PTYPE {
-   login,
-   login_ack,
-   login_failed,
-   audio_data,
-   status_updates,
-   request_chat,
-   answered_call,
-   request_address
-};*/
 /////////// Packet Types ////////
 #define LOGIN_T 0x1
 #define LOGIN_ACK_T 0x2
@@ -42,7 +32,20 @@ enum REQUEST {INCOMING_REQ, OUTGOING_REQ, INVALID_REQ};
 #define REQUEST_CHAT_T 0x6
 #define ANSWER_CALL_T 0x7
 #define REQUEST_ADDRESS_T 0x8
+#define DAEMON_INIT 0x9
 ////////////////////////////////
+
+/////////// Server Error Numbers /////////
+#define LOWEST_ERRNO           0x11
+#define LOGIN_DUP_E            0x11
+#define NOT_A_FRIEND_E         0x12
+#define NOT_LOGGED_IN_E        0x13
+#define INVALID_LOGIN_FORMAT_E 0x14
+#define INVALID_LOGIN_E        0x15
+#define INVALID_PW_E           0x16
+#define UNKNOWN_E              0x17
+#define HIGHEST_ERRNO          0x17
+///////////////////////////////////////
 
 struct login_data {
    char username[USERNAME_LEN];
@@ -51,7 +54,7 @@ struct login_data {
 } __attribute__((__packed__));
 
 struct friendList_data {
-   char username[20];
+   char username[USERNAME_LEN];
    uint32_t uid;
 } __attribute__((__packed__));
 
