@@ -8,7 +8,7 @@ from structlib import *
 from common import *
 from struct import error
 from itertools import izip_longest, starmap
-import threading
+import socket
 import hashlib
 import dao
 
@@ -120,6 +120,8 @@ class RequestHandler:
     
     def handle_addr_request(self, requesterID, data):
         def toIntVal(ipaddr):
+            if ipaddr == '127.0.0.1':
+                ipaddr = socket.gethostbyname(socket.gethostname())
             a = ipaddr.split('.')
             val = 0
             for elem in a:
