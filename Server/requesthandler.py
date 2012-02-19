@@ -12,11 +12,12 @@ import threading
 import hashlib
 import dao
 
+daemonMap = dict()
 dbdao = dao.dao()
 
 def runUpdateDaemon():
     updateDao = dao.dao()
-    for userID in onlineClients.keys():
+    for userID in daemonMap.keys():
         if not userID in onlineFriends:
             onlineFriends[userID] = set([])
         
@@ -40,7 +41,7 @@ def runUpdateDaemon():
         payload = payload + ''.join(starmap(upFormat.pack, list(izip_longest(onlinelist, '', fillvalue=1))))
         
         onlineFriends[userID] = onlinelist
-        (_, sock, _) = onlineClients[userID]
+        sock = daemonMap[userID]
         sock.send(padToSize(pktFormat.pack(0, r_status_update, len(payload)) + payload, BUFSIZE))
     del updateDao
     threading.Timer(UPDATE_INTERVAL, runUpdateDaemon).start()
@@ -58,6 +59,8 @@ class RequestHandler:
             del onlineClients[self.userID]
         if self.userID in onlineFriends:
             del onlineFriends[self.userID]
+        if self.userID in daemonMap:
+            del daemonMap[self.userID]
     
     '''
     @param userID: The user id of the requester
@@ -71,6 +74,19 @@ class RequestHandler:
             (friendname, friendID) = friend
             data = data + flEntryFormat.pack(str(friendname), friendID)
         return padToSize(pktFormat.pack(self.userID, r_login_good, len(data)) + data, BUFSIZE)
+    
+    '''
+    Called when a client daemon thread contacts the server with its own separate connection.
+    This update daemon will use this connection to send periodic updates to the client.
+    '''
+    def addToDaemonList(self, userID):
+        self.userID = userID
+        if not userID in onlineClients:
+            return errorPacket(e_not_logged_in)
+
+        daemonMap[userID] = self.sock
+        # Not actually an error packet -- just uses the same function to return a good status code
+        return errorPacket(r_login_good)
     
     ''' Handles login requests
         @return The packet data to send back to the client
@@ -93,10 +109,10 @@ class RequestHandler:
 
         # preventing duplicate logins
         if userID in onlineClients:
-           return errorPacket(e_login_dup)
+            return errorPacket(e_login_dup)
         if pw_hash == digest:
             self.userID = userID
-            onlineClients[userID] = (self.addr, self.sock, dccpPort)
+            onlineClients[userID] = (self.addr, dccpPort)
             return self.init_friendlist_packet()
         
         return errorPacket(e_invalid_pw)
@@ -121,7 +137,7 @@ class RequestHandler:
         if not friendID in onlineClients:
             return errorPacket(e_not_logged_in)
         
-        (addr, _, port), _ = onlineClients[friendID]
+        (addr, port) = onlineClients[friendID]
         payload = carOutFormat.pack(toIntVal(addr), port)
         return padToSize(pktFormat.pack(0, r_request_addr, len(payload)) + payload, BUFSIZE)
     
@@ -135,5 +151,7 @@ class RequestHandler:
             return self.handle_login(data)
         elif pType == r_request_addr:
             return self.handle_addr_request(userID, data)
+        elif pType == r_daemon_init:
+            return self.addToDaemonList(userID)
         else:
             return errorPacket(e_unknown)

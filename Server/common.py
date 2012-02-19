@@ -15,6 +15,7 @@ r_login_good = 0x2
 r_login_failed = 0x3
 r_status_update = 0x5
 r_request_addr = 0x8
+r_daemon_init = 0x9
 
 e_login_dup = 0x11
 e_not_a_friend = 0x12

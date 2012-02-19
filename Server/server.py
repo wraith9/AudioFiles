@@ -57,3 +57,6 @@ class ChatServer(asyncore.dispatcher):
             sock,addr = pair
             print 'Incoming connection from %s' % repr(addr)
             ChatHandler(sock, addr) # adds itself to the server loop automatically
+            
+    def handle_close(self):
+        self.close()
