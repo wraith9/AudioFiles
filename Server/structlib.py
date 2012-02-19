@@ -12,7 +12,7 @@ clFormat = Struct('!20s20sH')
 flEntryFormat = Struct("!20sI")
 carFormat = Struct("!I")
 carOutFormat = Struct("!IH")
-upFormat = Struct("IB")
+upFormat = Struct("!IB")
 
 def padToSize(string, maxSize):
     return string + ''.zfill(maxSize - len(string))

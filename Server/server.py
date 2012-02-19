@@ -43,11 +43,18 @@ class ChatServer(asyncore.dispatcher):
         '''
         asyncore.dispatcher.__init__(self)
         
-        threading.Timer(UPDATE_INTERVAL, runUpdateDaemon).start()
+        self.timerCancelled = False
+        self.restartTimer()
+        
         self.create_socket(socket.AF_INET, socket.SOCK_STREAM)
         self.set_reuse_addr()
         self.bind((host, port))
         self.listen(5)
+        
+    def restartTimer(self):
+        if not self.timerCancelled:
+            self.timerThread = threading.Timer(UPDATE_INTERVAL, runUpdateDaemon, [self.restartTimer])
+            self.timerThread.start()
     
     def handle_accept(self):
         pair = self.accept()
@@ -60,3 +67,8 @@ class ChatServer(asyncore.dispatcher):
             
     def handle_close(self):
         self.close()
+        
+    def close(self):
+        self.timerCancelled = True
+        self.timerThread.cancel()
+        asyncore.dispatcher.close(self)

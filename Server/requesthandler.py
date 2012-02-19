@@ -15,7 +15,7 @@ import dao
 daemonMap = dict()
 dbdao = dao.dao()
 
-def runUpdateDaemon():
+def runUpdateDaemon(restartTimerFunc):
     updateDao = dao.dao()
     for userID in daemonMap.keys():
         if not userID in onlineFriends:
@@ -44,12 +44,13 @@ def runUpdateDaemon():
         sock = daemonMap[userID]
         sock.send(padToSize(pktFormat.pack(0, r_status_update, len(payload)) + payload, BUFSIZE))
     del updateDao
-    threading.Timer(UPDATE_INTERVAL, runUpdateDaemon).start()
+    restartTimerFunc()
 
 class RequestHandler:
     
     def __init__(self, addr, sock):
-        self.addr = addr
+        (hostaddr, _) = addr
+        self.addr = hostaddr
         self.sock = sock
         
     def __del__(self):
