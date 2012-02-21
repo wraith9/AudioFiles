@@ -10,22 +10,31 @@
 #include <string>
 #include <string.h>
 
+#include <sstream>
+
 #include "myChat.h"
 
 using namespace std;
 
+bool audioToFile = false;
+
 int main(int argc, char *argv[]) {
    enum PROTO_TYPE protocolType;
+   char *serverHostname;
 
-   if (argc == 2)
-      protocolType = (enum PROTO_TYPE) atoi(argv[1]);
-   else {
+   if ((argc == 3) || (argc == 4)) {
+      protocolType = (enum PROTO_TYPE) atoi(argv[2]);
+      serverHostname = strdup(argv[1]);
+
+      if (argc == 4)
+         audioToFile = true;
+   } else {
       helpMenu();
       exit(EXIT_FAILURE);
    }
 
    // Initialize the client
-   theClient = new Client(protocolType);
+   theClient = new Client(serverHostname, protocolType);
 
    loginScreen();
 
@@ -128,12 +137,12 @@ void loginScreen() {
 /** Prints the help menu */
 void helpMenu() {
 
-   cerr << "usage: myChat [transport protocol] [uid]\n";
+   cerr << "usage: myChat [server hostname] [transport protocol]\n";
    cerr << "\ttransport protocol:\n";
+   cerr << "\t\tserver hostname: the hostname of the server\n";
    cerr << "\t\t0: DCCP\n";
    cerr << "\t\t1: UDP\n";
    cerr << "\t\t2: TCP\n";
-   cerr << "\tuid: your user id\n";
 
 }
 

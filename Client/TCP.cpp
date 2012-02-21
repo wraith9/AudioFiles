@@ -20,7 +20,6 @@ TCP::TCP(enum PROTO_IO protoIO, char *hostname, uint16_t portNum) {
    temp_socket = -1;
 
    if (protoIO == SERVER_IO) {
-      openSocket();
       initMaster(portNum);
    } else if (protoIO == CLIENT_IO)
       initSlave(hostname, portNum);
@@ -40,26 +39,22 @@ TCP::~TCP() {
  * 
  * @return the socket number
  */
-int TCP::openSocket() {
+void TCP::initMaster(uint16_t portNum) {
+   struct sockaddr_in address;
+
    int reuseport;
 
    if ((socket_num = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) < 0) {
       perror("socket");
-      return -1;
+      exit(EXIT_FAILURE);
    }
 
    reuseport = 0;
    if (setsockopt(socket_num, SOL_SOCKET, SO_REUSEADDR,
             (const char *) &reuseport, sizeof(reuseport)) < 0) {
       perror("setsockopt");
-      return -1;
+      exit(EXIT_FAILURE);
    }
-
-   return socket_num;
-}
-
-void TCP::initMaster(uint16_t portNum) {
-   struct sockaddr_in address;
 
    /* name the socket */
    address.sin_family = AF_INET;
@@ -72,10 +67,6 @@ void TCP::initMaster(uint16_t portNum) {
       close(socket_num);
       exit(EXIT_FAILURE);
    }
-
-#ifdef DEBUG
-   getPortNum();
-#endif
 
    if (listen(socket_num, SOMAXCONN) == -1) {
       perror("listen()");
@@ -97,15 +88,20 @@ void TCP::initSlave(char *hostname, uint16_t portNum) {
    hints.ai_socktype = SOCK_STREAM;
    hints.ai_protocol = IPPROTO_TCP;
 
-   if ((retval = getaddrinfo(hostname, (myStream.str()).c_str(), &hints, &result)) != 0) {
+   cerr << "Looking for: " << hostname << " on port " << portNum << endl; 
+
+   if ((retval = getaddrinfo(hostname, (myStream.str()).c_str(), &hints, 
+         &result)) != 0) {
       cerr << "getaddrinfo: " << gai_strerror(retval) << endl;
       exit(EXIT_FAILURE);
    }
 
    for (rp = result; rp != NULL; rp = rp->ai_next) {
       socket_num = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
-      if (socket_num < 0)
+      if (socket_num < 0)  {
+         cerr << "bad socket!\n";
          continue;
+      }
 
       if (connect(socket_num, rp->ai_addr, rp->ai_addrlen) != -1 )
          break;

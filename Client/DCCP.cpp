@@ -20,7 +20,6 @@ DCCP::DCCP(enum PROTO_IO protoIO, char *hostname, uint16_t portNum) {
    temp_socket = -1;
 
    if (protoIO == SERVER_IO) {
-      openSocket();
       initMaster(portNum);
    } else if (protoIO == CLIENT_IO)
       initSlave(hostname, portNum);
@@ -40,26 +39,22 @@ DCCP::~DCCP() {
  * 
  * @return the socket number
  */
-int DCCP::openSocket() {
+void DCCP::initMaster(uint16_t portNum) {
+   struct sockaddr_in address;
+
    int reuseport;
 
    if ((socket_num = socket(AF_INET, SOCK_DCCP, IPPROTO_DCCP)) < 0) {
       perror("socket");
-      return -1;
+      exit(EXIT_FAILURE);
    }
 
    reuseport = 0;
    if (setsockopt(socket_num, SOL_DCCP, SO_REUSEADDR,
             (const char *) &reuseport, sizeof(reuseport)) < 0) {
       perror("setsockopt");
-      return -1;
+      exit(EXIT_FAILURE);
    }
-
-   return socket_num;
-}
-
-void DCCP::initMaster(uint16_t portNum) {
-   struct sockaddr_in address;
 
    /* name the socket */
    address.sin_family = AF_INET;

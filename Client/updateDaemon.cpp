@@ -10,6 +10,8 @@
 
 using namespace std;
 
+extern bool audiotoFile;
+
 /** This is the thread function for the update daemon.  The update daemon
  * updates the friends list with updates received form the main server.
  *
@@ -84,7 +86,7 @@ bool Client::initDaemon() {
    int retval;
 
    // Open a new socket to communicate with the server
-   daemonProtocol = new TCP(CLIENT_IO, (char *) "127.0.0.1", 9999);
+   daemonProtocol = new TCP(CLIENT_IO, theServerName, 9999);
 
    // Initialize the packet to set up the connection
    memset((void *) &thePacket, 0, sizeof(packet));

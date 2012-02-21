@@ -6,3 +6,6 @@ Client/myChat
 Server/ChatServerDB
 Client/.cproject
 Client/.project
+Client/audioProcessing/testVS
+Client/audioProcessing/*.o
+Client/audioSession*

@@ -9,6 +9,14 @@
 
 #define DEBUG // define when debugging
 
+#ifndef SOCK_DCCP 
+#define SOCK_DCCP 6
+#endif
+
+#ifndef IPPROTO_DCCP
+#define IPPROTO_DCCP 33
+#endif
+
 #define SOL_DCCP 269
 #define MAX_DCCP_CONNECTION_BACK_LOG 5
 

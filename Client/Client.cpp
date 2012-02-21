@@ -11,10 +11,14 @@
 
 #include <time.h>
 
+extern bool audioToFile;
+
 /** This constructor specifies which transport protocol to use
  * @param type the type of transport protocol, i.e. DCCP, TCP, or UDP
  */
-Client::Client(enum PROTO_TYPE type) {
+Client::Client(char *serverHostname, enum PROTO_TYPE type) {
+
+   theServerName = serverHostname;
 
    chatting = false;
    callerID = 0;
@@ -25,6 +29,8 @@ Client::Client(enum PROTO_TYPE type) {
 /** Client destructor */
 Client::~Client() {
    closeAllConnections();
+   
+   delete theServerName;
 }
 
 /** Closes all the connections */
@@ -61,7 +67,7 @@ bool Client::loginToServer(login_data loginData) {
 
    // inject the master protocol port number
    loginData.clientPort = htons(masterProtocol->getPortNum());
-
+   
    if (!connectToServer(loginData))
       return false;
 
@@ -81,7 +87,7 @@ bool Client::connectToServer(login_data loginData) {
    packet loginPacket;
    int responseVal;
 
-   mainServer = new TCP(CLIENT_IO, (char *) "127.0.0.1", 9999);
+   mainServer = new TCP(CLIENT_IO, theServerName, 9999);
 
    initPacketHeader(&loginPacket, 0, LOGIN_T, sizeof(login_data));
    memcpy(loginPacket.data, (void *) &loginData, sizeof(login_data));
@@ -220,6 +226,7 @@ void Client::connectToFriend() {
    if (m_thread)
       m_thread->join();
 
+   chatting = true;
    m_thread = boost::shared_ptr<boost::thread>(
          new boost::thread(boost::bind(&Client::startChat, this,
                slaveProtocol)));
@@ -229,23 +236,25 @@ void Client::connectToFriend() {
 void Client::startChat(TransProtocol *commProtocol) {
    packet ourPacket;
    packet theirPacket;
-   int status;
+   int status, tempFile = -1;
    boost::posix_time::milliseconds sleep_time(50);
 
-   /*// XXX Debugging ///////////
-   stringstream ss;
-   srand(time(NULL));
-   ss << rand();
-   string randFilename = "audioSession" + ss.str() + ".raw";
-   int tempFile = open(randFilename.c_str(), O_WRONLY | O_CREAT | O_NONBLOCK | 
-         O_TRUNC, S_IRUSR | S_IWUSR);
-   if (tempFile < 0) {
-      perror("Failed to open a temporary file");
-      commProtocol->endCall();
-      chatting = false;
-      return;
+   // XXX Debugging ///////////
+   if (audioToFile) {
+      stringstream ss;
+      srand(time(NULL));
+      ss << rand();
+      string randFilename = "audioSession" + ss.str() + ".raw";
+      tempFile = open(randFilename.c_str(), O_WRONLY | O_CREAT | O_NONBLOCK | 
+            O_TRUNC, S_IRUSR | S_IWUSR);
+      if (tempFile < 0) {
+         perror("Failed to open a temporary file");
+         commProtocol->endCall();
+         chatting = false;
+         return;
+      }
    }
-   ///////////////////////////  */
+   ///////////////////////////
 
    voiceStream = new VoiceStreamer();
    if (!voiceStream->initDevice()) {
@@ -256,6 +265,8 @@ void Client::startChat(TransProtocol *commProtocol) {
    }
 
    initPacketHeader(&ourPacket, myUID, AUDIO_DATA_T, BUF_LEN);
+
+   cout << "\nConnected! Start talking...\n";
 
    while (true) {
       if (commProtocol->waitForResponse(0)) {
@@ -268,18 +279,19 @@ void Client::startChat(TransProtocol *commProtocol) {
             break;
 
          if (theirPacket.type == AUDIO_DATA_T) {
-            voiceStream->playBuffer((char *) theirPacket.data, 
-                  ntohs(theirPacket.dlength));
-            /*int numW;
-            if ((numW = write(tempFile, theirPacket.data, 
-                     ntohs(theirPacket.dlength))) < 0) {
-               perror("Failed to write to the temp file\n");
-               break;
-            } else if (numW < ntohs(theirPacket.dlength)) 
-               cout << "short write!\n";*/
+            if (!audioToFile) {
+               voiceStream->playBuffer((char *) theirPacket.data, 
+                     ntohs(theirPacket.dlength));
+            } else {
+               int numW;
+               if ((numW = write(tempFile, theirPacket.data, 
+                        ntohs(theirPacket.dlength))) < 0) {
+                  perror("Failed to write to the temp file\n");
+                  break;
+               } else if (numW < ntohs(theirPacket.dlength)) 
+                  cout << "short write!\n";
+            }
          }
-         else if (theirPacket.type == STATUS_UPDATES_T)
-            cout << "GOT A STATUS UPDATE IN startChat!!!!\n";
       }
 
       ourPacket.dlength = htons(
@@ -290,11 +302,11 @@ void Client::startChat(TransProtocol *commProtocol) {
          break;
       }
 
-      boost::this_thread::sleep(sleep_time);
+      //boost::this_thread::sleep(sleep_time);
    }
 
    delete voiceStream;
-   cout << "startChat: Call ended.\n";
+   cout << "Call ended.\n";
    commProtocol->endCall();
    chatting = false;
 }
@@ -354,26 +366,6 @@ uint16_t Client::getFriendAddr(carOutFormat *theData, uint32_t friendId) {
 
    cerr << "Failed to get the friend's IP and port # from the server!\n";
    return false;
-}
-
-/** Gets the hostname of the friend you want to chat with
- *
- * @param friendId the id of the friend you want to chat with
- * @return a string containing the hostname of your friend's computer
- */
-string Client::getHostname(uint32_t friendId) {
-
-   // get the hostname from the server db
-
-
-   // XXX Temporarily ask for the hostname
-   string theHostname = "";
-
-   cout << "Enter the hostname of your friend's computer: ";
-
-   getline(cin, theHostname);
-
-   return theHostname;
 }
 
 /** Stops the current call by ending the calling thread. */

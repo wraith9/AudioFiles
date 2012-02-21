@@ -17,6 +17,7 @@
 #include <boost/bind.hpp>
 #include <boost/thread/thread.hpp>
 #include <boost/shared_ptr.hpp>
+#include <boost/date_time/posix_time/posix_time.hpp>
 
 #include "audioProcessing/VoiceStreamer.h"
 #include "DCCP.h"
@@ -32,7 +33,7 @@ using namespace std;
 
 class Client {
    public:
-      Client(enum PROTO_TYPE type);
+      Client(char *serverHostname, enum PROTO_TYPE type);
       ~Client();
 
       int waitForRequests(int seconds);
@@ -54,7 +55,6 @@ class Client {
    private:
       void startChat(TransProtocol *commProtocol);
       uint16_t getFriendAddr(carOutFormat *theData, uint32_t friendId);
-      string getHostname(uint32_t friendId);
       void connectToFriend();
       bool connectToServer(login_data loginData);
       void extractFriends(friendList_data *data, uint16_t dlength);
@@ -68,6 +68,7 @@ class Client {
 
       VoiceStreamer *voiceStream;
       enum PROTO_TYPE myType;
+      char *theServerName;
       uint32_t myUID;
       TransProtocol *masterProtocol;
       TransProtocol *slaveProtocol;

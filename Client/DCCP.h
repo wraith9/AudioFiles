@@ -29,7 +29,6 @@ class DCCP : public TransProtocol {
       void endCall();
 
    protected:
-      int openSocket();
       void initMaster(uint16_t portNum);
       void initSlave(char *hostname, uint16_t portNum);
 

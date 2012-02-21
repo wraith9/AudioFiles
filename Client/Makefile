@@ -2,7 +2,7 @@
 
 CC = g++
 CFLAGS = -g -Wall -c -Werror -lsocket -lnsl -O2
-LIBS = -lboost_thread -lpthread -lasound
+LIBS = -lboost_thread-mt -lpthread -lasound
 
 ALL = audioProcessing/VoiceStreamer.o myChat 
 

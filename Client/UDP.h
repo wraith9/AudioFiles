@@ -29,9 +29,10 @@ class UDP : public TransProtocol {
       void endCall();
 
    protected:
-      int openSocket();
       void initMaster(uint16_t portNum);
       void initSlave(char *hostname, uint16_t portNum);
+
+      int initMaster_custom(uint16_t portNum);
 
       struct sockaddr_in client_addr;
       socklen_t client_addr_len;

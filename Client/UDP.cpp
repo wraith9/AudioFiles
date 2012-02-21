@@ -20,7 +20,6 @@ UDP::UDP(enum PROTO_IO protoIO, char *hostname, uint16_t portNum) {
    temp_socket = -1;
 
    if (protoIO == SERVER_IO) {
-      openSocket();
       initMaster(portNum);
    } else if (protoIO == CLIENT_IO)
       initSlave(hostname, portNum);
@@ -40,27 +39,23 @@ UDP::~UDP() {
  * 
  * @return the socket number
  */
-int UDP::openSocket() {
+int UDP::initMaster_custom(uint16_t portNum) {
    int reuseport;
+   struct sockaddr_in address;
+   int socketNum;
 
-   if ((socket_num = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+   if ((socketNum = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
       perror("socket");
       exit(EXIT_FAILURE);
    }
 
    reuseport = 0;
-   if (setsockopt(socket_num, SOL_SOCKET, SO_REUSEADDR,
+   if (setsockopt(socketNum, SOL_SOCKET, SO_REUSEADDR,
             (const char *) &reuseport, sizeof(reuseport)) < 0) {
       perror("setsockopt");
-      close(socket_num);
+      close(socketNum);
       exit(EXIT_FAILURE);
    }
-
-   return socket_num;
-}
-
-void UDP::initMaster(uint16_t portNum) {
-   struct sockaddr_in address;
 
    /* name the socket */
    address.sin_family = AF_INET;
@@ -68,11 +63,18 @@ void UDP::initMaster(uint16_t portNum) {
    address.sin_port = htons(portNum);
 
    /* bind the socket to a port */
-   if (bind(socket_num, (struct sockaddr *) &address, sizeof(address)) < 0) {
+   if (bind(socketNum, (struct sockaddr *) &address, sizeof(address)) < 0) {
       perror("bind");
       close(socket_num);
       exit(EXIT_FAILURE);
    }
+
+   return socketNum;
+}
+
+void UDP::initMaster(uint16_t portNum) {
+
+   socket_num = initMaster_custom(portNum);
 }
 
 void UDP::initSlave(char *hostname, uint16_t portNum) {
@@ -123,7 +125,7 @@ void UDP::initSlave(char *hostname, uint16_t portNum) {
 
    struct hostent *theHost;
 
-   if ((socket_num = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+   if ((client_socket = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
       perror("socket");
       exit(EXIT_FAILURE);
    }
@@ -138,7 +140,7 @@ void UDP::initSlave(char *hostname, uint16_t portNum) {
    client_addr.sin_port = htons(portNum);
    client_addr_len = sizeof(client_addr);
 
-   client_socket = socket_num;
+   //client_socket = socket_num;
 }
 
 /** Sends a packet over the UDP socket 
@@ -199,7 +201,7 @@ void UDP::ignoreCaller() {
 
 void UDP::answerCall() {
 
-   client_socket = socket_num;
+   client_socket = initMaster_custom(0);
 }
 
 void UDP::endCall() {
