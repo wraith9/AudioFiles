@@ -137,12 +137,13 @@ void loginScreen() {
 /** Prints the help menu */
 void helpMenu() {
 
-   cerr << "usage: myChat [server hostname] [transport protocol]\n";
+   cerr << "usage: myChat [server hostname] [transport protocol] [save to file]\n";
+   cerr << "\tserver hostname: the hostname of the server\n";
    cerr << "\ttransport protocol:\n";
-   cerr << "\t\tserver hostname: the hostname of the server\n";
    cerr << "\t\t0: DCCP\n";
    cerr << "\t\t1: UDP\n";
    cerr << "\t\t2: TCP\n";
+   cerr << "\tsave to file: triggers the received audio to be written to a file\n";
 
 }
 
