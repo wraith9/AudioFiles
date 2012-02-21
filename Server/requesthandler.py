@@ -4,16 +4,41 @@ Created on Feb 4, 2012
 @author: Tim Biggs
 '''
 
+from exceptions import Exception
 from structlib import *
 from common import *
 from struct import error
-from itertools import izip_longest, starmap
+from itertools import chain, starmap
 import socket
 import hashlib
 import dao
 
 daemonMap = dict()
 dbdao = dao.dao()
+
+'''
+Grabbed from python documentation for backwards compatibility with 2.5
+(because Vogon is old)
+'''
+
+class ZipExhausted(Exception):
+   pass
+
+def izip_longest(*args, **kwds):
+   fillvalue = kwds.get('fillvalue')
+   counter = [len(args) - 1]
+   def setinel():
+      if not counter[0]:
+         raise ZipExhausted
+      counter[0] -= 1
+      yield fillvalue
+   fillers = repeat(fillvalue)
+   iterators = [chain(it, setinel(), fillers) for it in args]
+   try:
+      while iterators:
+         yield tuple(map(next, iterators))
+   except ZipExhausted:
+      pass
 
 def runUpdateDaemon(restartTimerFunc):
     updateDao = dao.dao()
