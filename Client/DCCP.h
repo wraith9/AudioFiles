@@ -18,7 +18,7 @@ using namespace std;
 
 class DCCP : public TransProtocol {
    public:
-      DCCP(enum PROTO_IO protoIO, string hostname, uint16_t portNum);
+      DCCP(enum PROTO_IO protoIO, char *hostname, uint16_t portNum);
       ~DCCP();
 
       int sendPacket(const void *buf, size_t len, int flags);
@@ -31,7 +31,7 @@ class DCCP : public TransProtocol {
    protected:
       int openSocket();
       void initMaster(uint16_t portNum);
-      void initSlave(string hostname, uint16_t portNum);
+      void initSlave(char *hostname, uint16_t portNum);
 
 };
 

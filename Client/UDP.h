@@ -1,11 +1,11 @@
-/** This class is used to send data across the TCP transport layer
+/** This class is used to send data across the UDP transport layer
  * protocol.  It is inherited from the TransProtocol class.
  *
  * @author William McVicker
  */
 
-#ifndef TCP_H
-#define TCP_H 
+#ifndef UDP_H
+#define UDP_H 
 
 #include <sys/types.h>
 #include <sys/socket.h>
@@ -16,10 +16,10 @@
 
 using namespace std;
 
-class TCP : public TransProtocol {
+class UDP : public TransProtocol {
    public:
-      TCP(enum PROTO_IO protoIO, char *hostname, uint16_t portNum);
-      ~TCP();
+      UDP(enum PROTO_IO protoIO, char *hostname, uint16_t portNum);
+      ~UDP();
 
       int sendPacket(const void *buf, size_t len, int flags);
       int recvPacket(void *buf, size_t len, int flags);
@@ -32,6 +32,9 @@ class TCP : public TransProtocol {
       int openSocket();
       void initMaster(uint16_t portNum);
       void initSlave(char *hostname, uint16_t portNum);
+
+      struct sockaddr_in client_addr;
+      socklen_t client_addr_len;
 
 };
 

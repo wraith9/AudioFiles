@@ -9,6 +9,7 @@
 #include <string>
 #include <string.h>
 
+#include <time.h>
 
 /** This constructor specifies which transport protocol to use
  * @param type the type of transport protocol, i.e. DCCP, TCP, or UDP
@@ -45,13 +46,13 @@ bool Client::loginToServer(login_data loginData) {
 
    switch (myType) {
    case DCCP_T:
-      masterProtocol = new DCCP(SERVER_IO, "", 0);
+      masterProtocol = new DCCP(SERVER_IO, NULL, 0);
       break;
    case UDP_T:
-      assert(false); //tProtocol = new UDP();
+      masterProtocol = new UDP(SERVER_IO, NULL, 0);
       break;
    case TCP_T:
-      masterProtocol = new TCP(SERVER_IO, "", 0);
+      masterProtocol = new TCP(SERVER_IO, NULL, 0);
       break;
    default:
       cout << "Invalid option: " << myType << endl;
@@ -70,8 +71,8 @@ bool Client::loginToServer(login_data loginData) {
    myFriends[myUID] = myInfo;
 
    // Start update request daemon
-      m_updateThread = boost::shared_ptr<boost::thread>(
-        new boost::thread(boost::bind(&Client::theUpdateDaemon, this)));
+   m_updateThread = boost::shared_ptr<boost::thread>(
+      new boost::thread(boost::bind(&Client::theUpdateDaemon, this)));
    
    return true;
 }
@@ -80,14 +81,14 @@ bool Client::connectToServer(login_data loginData) {
    packet loginPacket;
    int responseVal;
 
-   mainServer = new TCP(CLIENT_IO, "localhost", 9999);
+   mainServer = new TCP(CLIENT_IO, (char *) "127.0.0.1", 9999);
 
    initPacketHeader(&loginPacket, 0, LOGIN_T, sizeof(login_data));
    memcpy(loginPacket.data, (void *) &loginData, sizeof(login_data));
 
    // Send login information
    if (mainServer->sendPacket((void *) &loginPacket, sizeof(packet), 0) < 0) {
-      perror("sendPacket()");
+      perror("connectToServer: sendPacket()");
       cerr << "Failed to connect to the server\n";
       return false;
    }
@@ -169,23 +170,22 @@ void Client::acceptNewCall() {
  * @param friendId the friend to call
  */
 void Client::makeCall(uint32_t friendId) {
+   carOutFormat friendAddr;
 
-   if ((friendPort = getFriendPort(friendId)) == 0)
+   if (!getFriendAddr(&friendAddr, friendId))
       return;
 
-#ifdef DEBUG
-   cout << "Friend's port is " << friendPort << endl;
-#endif
-   theHost = getHostname(friendId);
-
    if (dynamic_cast<DCCP *>(masterProtocol))
-      slaveProtocol = new DCCP(CLIENT_IO, theHost, friendPort);
+      slaveProtocol = new DCCP(CLIENT_IO, inet_ntoa(friendAddr.friendIP), 
+            ntohs(friendAddr.portNum));
    else if (dynamic_cast<TCP *>(masterProtocol))
-      slaveProtocol = new TCP(CLIENT_IO, theHost, friendPort);
-   //else if (dynamic_cast<UDP *>(&masterProtocol))
-   //   assert(false);//slaveProtocol = new UDP(CLIENT_IO, theHost, friendPort);
-   //else
-   //   assert(false);
+      slaveProtocol = new TCP(CLIENT_IO, inet_ntoa(friendAddr.friendIP), 
+            ntohs(friendAddr.portNum));
+   else if (dynamic_cast<UDP *>(masterProtocol))
+      slaveProtocol = new UDP(CLIENT_IO, inet_ntoa(friendAddr.friendIP), 
+            ntohs(friendAddr.portNum));
+   else
+      assert(false);
 
    connectToFriend();
 }
@@ -201,11 +201,14 @@ void Client::connectToFriend() {
       status = slaveProtocol->sendPacket((void *) &initPacket, sizeof(packet),
             0);
       if (status < 0) {
-         perror("sendPacket()");
+         perror("connectToFriend: sendPacket()");
+         return;
+      } else if (status == 0) {
+         cerr << "Failed to send request to chat packet\n";
          return;
       }
 
-      /* Check if the server responded */
+      /* Check if the client responded */
       if (slaveProtocol->waitForResponse(1))
          break;
       else if (i == 4) {
@@ -229,10 +232,30 @@ void Client::startChat(TransProtocol *commProtocol) {
    int status;
    boost::posix_time::milliseconds sleep_time(50);
 
-   strcpy((char *) ourPacket.data, "This data is from the server!!\n\0");
-   ourPacket.dlength = htons(strlen((char *) ourPacket.data) + 1);
-   initPacketHeader(&ourPacket, myUID, AUDIO_DATA_T,
-         strlen((char *) ourPacket.data) + 1);
+   /*// XXX Debugging ///////////
+   stringstream ss;
+   srand(time(NULL));
+   ss << rand();
+   string randFilename = "audioSession" + ss.str() + ".raw";
+   int tempFile = open(randFilename.c_str(), O_WRONLY | O_CREAT | O_NONBLOCK | 
+         O_TRUNC, S_IRUSR | S_IWUSR);
+   if (tempFile < 0) {
+      perror("Failed to open a temporary file");
+      commProtocol->endCall();
+      chatting = false;
+      return;
+   }
+   ///////////////////////////  */
+
+   voiceStream = new VoiceStreamer();
+   if (!voiceStream->initDevice()) {
+      cout << "Failed to initialize the microphone\n";
+      commProtocol->endCall();
+      chatting = false;
+      return;
+   }
+
+   initPacketHeader(&ourPacket, myUID, AUDIO_DATA_T, BUF_LEN);
 
    while (true) {
       if (commProtocol->waitForResponse(0)) {
@@ -244,48 +267,48 @@ void Client::startChat(TransProtocol *commProtocol) {
          } else if (status == 0) // socket has been closed
             break;
 
-         if (theirPacket.type == AUDIO_DATA_T)
-            cout << theirPacket.data;
+         if (theirPacket.type == AUDIO_DATA_T) {
+            voiceStream->playBuffer((char *) theirPacket.data, 
+                  ntohs(theirPacket.dlength));
+            /*int numW;
+            if ((numW = write(tempFile, theirPacket.data, 
+                     ntohs(theirPacket.dlength))) < 0) {
+               perror("Failed to write to the temp file\n");
+               break;
+            } else if (numW < ntohs(theirPacket.dlength)) 
+               cout << "short write!\n";*/
+         }
          else if (theirPacket.type == STATUS_UPDATES_T)
             cout << "GOT A STATUS UPDATE IN startChat!!!!\n";
       }
 
+      ourPacket.dlength = htons(
+            voiceStream->fillBuffer((char *) ourPacket.data, BUF_LEN));
       status = commProtocol->sendPacket((void *) &ourPacket, sizeof(packet), 0);
       if (status < 0) {
-         perror("sendPacket()");
+         perror("startChat: sendPacket()");
          break;
       }
 
       boost::this_thread::sleep(sleep_time);
    }
 
+   delete voiceStream;
    cout << "startChat: Call ended.\n";
    commProtocol->endCall();
    chatting = false;
 }
+
 
 /** Gets the port of the friend you want to chat with
  *
  * @param friendId the id of the friend you want to chat with
  * @return the port of your friend's computer
  */
-uint16_t Client::getFriendPort(uint32_t friendId) {
+uint16_t Client::getFriendAddr(carOutFormat *theData, uint32_t friendId) {
    packet reqPacket;
    carFormat reqData;
-   carOutFormat theData;
    int retval;
-
-/*   // XXX while the server isn't working
-   string input = "";
-   uint16_t portNum = -1;
-   cout << "Enter the port # of your friend's computer: ";
-   getline(cin, input);
-   stringstream myStream(input);
-   if (myStream >> portNum)
-      return portNum;
-
-   assert(false);
-   ///////////////////////////////////// */
 
    // Create the packet
    initPacketHeader(&reqPacket, myUID, REQUEST_ADDRESS_T, sizeof(carFormat));
@@ -293,7 +316,7 @@ uint16_t Client::getFriendPort(uint32_t friendId) {
    memcpy(reqPacket.data, &reqData, sizeof(carFormat));
 
    if (mainServer->sendPacket(&reqPacket, sizeof(packet), 0) < 0) {
-      perror("getFriendPort: sendPacket()");
+      perror("getFriendAddr: sendPacket()");
       SAFE_EXIT(EXIT_FAILURE);
    }
 
@@ -304,33 +327,33 @@ uint16_t Client::getFriendPort(uint32_t friendId) {
       memset((void *) &reqPacket, 0, sizeof(packet));
       retval = mainServer->recvPacket((void *) &reqPacket, sizeof(packet), 0);
       if (retval < 0) {
-         perror("getFriendPort: recvPacket()");
+         perror("getFriendAddr: recvPacket()");
          SAFE_EXIT(EXIT_FAILURE);
       } else if (retval == 0) { // connection has been shutdown
          cout << "Connection to server was lost.\n";
-         return 0;
+         return false;
       }
 
       switch (reqPacket.type) {
       case REQUEST_ADDRESS_T:
-         memcpy(&theData, reqPacket.data, sizeof(carOutFormat));
-         return ntohs(theData.portNum);
+         memcpy(theData, reqPacket.data, sizeof(carOutFormat));
+         return true;
       case NOT_LOGGED_IN_E:
          cout << myFriends[friendId].friendData.username;
          cout << " is not available.\n";
-         return 0;
+         return false;
       default:
          if (reqPacket.type >= LOWEST_ERRNO &&
                reqPacket.type <= HIGHEST_ERRNO) {
-            printErrMsg("getFriendPort", reqPacket.type);
-            return 0;
+            printErrMsg("getFriendAddr", reqPacket.type);
+            return false;
          } else
-            cout << "getFriendPort: received a non-request address packet.\n";
+            cout << "getFriendAddr: received a non-request address packet.\n";
       }
    }
 
-   cerr << "Failed to get the friend's port # from the server!\n";
-   return 0;
+   cerr << "Failed to get the friend's IP and port # from the server!\n";
+   return false;
 }
 
 /** Gets the hostname of the friend you want to chat with

@@ -38,7 +38,7 @@ void Client::theUpdateDaemon() {
          perror("updateDaemon: recvPacket()");
          SAFE_EXIT(EXIT_FAILURE);
       } else if (retval == 0) { // connection has been shutdown
-         cout << "Update Daemon exitting.\n";
+         cout << "Update Daemon exiting.\n";
          return;
       }
 
@@ -63,7 +63,13 @@ void Client::theUpdateDaemon() {
 #endif
             continue;
          }
-         (*it).second.status = theData[i].status;
+         if ((*it).second.status != theData[i].status) {
+            if (theData[i].status)
+               cout << myFriends[fID].friendData.username << " is online\n";
+            else
+               cout << myFriends[fID].friendData.username <<" is now offline\n";
+         }
+         (*it).second.status = theData[i].status; 
       }
    }
 }
@@ -78,7 +84,7 @@ bool Client::initDaemon() {
    int retval;
 
    // Open a new socket to communicate with the server
-   daemonProtocol = new TCP(CLIENT_IO, "localhost", 9999);
+   daemonProtocol = new TCP(CLIENT_IO, (char *) "127.0.0.1", 9999);
 
    // Initialize the packet to set up the connection
    memset((void *) &thePacket, 0, sizeof(packet));

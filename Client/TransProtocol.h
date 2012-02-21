@@ -41,7 +41,7 @@ class TransProtocol {
       int temp_socket;
       virtual int openSocket() =0;
       virtual void initMaster(uint16_t portNum) =0;
-      virtual void initSlave(string hostname, uint16_t portNum) =0;
+      virtual void initSlave(char *hostname, uint16_t portNum) =0;
 
 };
 

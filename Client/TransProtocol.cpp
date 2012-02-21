@@ -8,7 +8,7 @@
 TransProtocol::TransProtocol(): socket_num(-1), client_socket(-1),
    temp_socket(-1) {
 
-   }
+}
 
 TransProtocol& TransProtocol::operator=(const TransProtocol &right) {
 

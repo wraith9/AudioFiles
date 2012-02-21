@@ -46,5 +46,6 @@ int select_call(int *socket_num, int numSockets, int seconds, int useconds) {
          return socket_num[i] + 1;
    }
 
+   fprintf(stderr, "hmmm...something triggered!\n");
    return 0;
 }

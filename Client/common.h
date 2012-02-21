@@ -68,7 +68,7 @@ struct carFormat {
 } __attribute__((__packed__));
 
 struct carOutFormat {
-   uint32_t friendID;
+   struct in_addr friendIP;
    uint16_t portNum;
 } __attribute__((__packed__)); // Client Address Request Outgoing
 

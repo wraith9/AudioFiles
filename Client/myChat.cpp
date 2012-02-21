@@ -72,7 +72,6 @@ void startStateMachine() {
             state = IDLE_S;
          break;
       case CHATTING_S:
-
          while (theClient->chatting) {
             if (theClient->waitForRequests(1))
                theClient->acceptNewCall();

@@ -9,19 +9,20 @@
 #include <stdio.h>
 #include "TCP.h"
 
+#include <sstream>
 #include <iostream>
 #include <string.h>
 
-TCP::TCP(enum PROTO_IO protoIO, string hostname, uint16_t portNum) {
+TCP::TCP(enum PROTO_IO protoIO, char *hostname, uint16_t portNum) {
 
    socket_num = -1;
    client_socket = -1;
    temp_socket = -1;
 
-   openSocket();
-   if (protoIO == SERVER_IO)
+   if (protoIO == SERVER_IO) {
+      openSocket();
       initMaster(portNum);
-   else if (protoIO == CLIENT_IO)
+   } else if (protoIO == CLIENT_IO)
       initSlave(hostname, portNum);
    else {
       cerr << "Invalid protocol I/O: " << protoIO << endl;
@@ -84,30 +85,48 @@ void TCP::initMaster(uint16_t portNum) {
 
 }
 
-void TCP::initSlave(string hostname, uint16_t portNum) {
-   struct hostent *theHost;
-   struct sockaddr_in address;
-   char *hstName;
+void TCP::initSlave(char *hostname, uint16_t portNum) {
+   struct addrinfo hints;
+   struct addrinfo *result, *rp;
+   int retval, reuseport;
+   stringstream myStream;
+   myStream << portNum;
 
-   hstName = new char[hostname.length()+1];
-   strcpy(hstName, hostname.c_str());
+   memset(&hints, 0, sizeof(struct addrinfo));
+   hints.ai_family = AF_INET;
+   hints.ai_socktype = SOCK_STREAM;
+   hints.ai_protocol = IPPROTO_TCP;
 
-   if (NULL == (theHost = gethostbyname(hstName))) {
-      cerr << "gethostbyname(): " << strerror(h_errno) << endl;
-      return;
-   }
-   memcpy(&address.sin_addr, theHost->h_addr, theHost->h_length);
-   address.sin_family = AF_INET;
-   address.sin_port = htons(portNum);
-
-   if (connect(socket_num, (struct sockaddr *) &address, sizeof(address)) < 0) {
-      perror("connect()");
+   if ((retval = getaddrinfo(hostname, (myStream.str()).c_str(), &hints, &result)) != 0) {
+      cerr << "getaddrinfo: " << gai_strerror(retval) << endl;
       exit(EXIT_FAILURE);
    }
-   
-   client_socket = socket_num;
 
-   delete[] hstName; // cleanup after yourself
+   for (rp = result; rp != NULL; rp = rp->ai_next) {
+      socket_num = socket(rp->ai_family, rp->ai_socktype, rp->ai_protocol);
+      if (socket_num < 0)
+         continue;
+
+      if (connect(socket_num, rp->ai_addr, rp->ai_addrlen) != -1 )
+         break;
+
+      close(socket_num);
+   }
+
+   if (rp == NULL) {
+      cerr << "Could not connect to server\n";
+      exit(EXIT_FAILURE);
+   }
+
+   reuseport = 0;
+   if (setsockopt(socket_num, SOL_SOCKET, SO_REUSEADDR,
+            (const char *) &reuseport, sizeof(reuseport)) < 0) {
+      perror("setsockopt");
+      exit(EXIT_FAILURE);
+   }
+
+   freeaddrinfo(result);
+   client_socket = socket_num;
 }
 
 /** Sends a packet over the TCP socket 

@@ -18,8 +18,10 @@
 #include <boost/thread/thread.hpp>
 #include <boost/shared_ptr.hpp>
 
+#include "audioProcessing/VoiceStreamer.h"
 #include "DCCP.h"
 #include "TCP.h"
+#include "UDP.h"
 
 #include <string>
 #include <map>
@@ -51,7 +53,7 @@ class Client {
 
    private:
       void startChat(TransProtocol *commProtocol);
-      uint16_t getFriendPort(uint32_t friendId);
+      uint16_t getFriendAddr(carOutFormat *theData, uint32_t friendId);
       string getHostname(uint32_t friendId);
       void connectToFriend();
       bool connectToServer(login_data loginData);
@@ -61,10 +63,10 @@ class Client {
       void initPacketHeader(packet *thePacket, uint32_t uid, uint8_t type, 
          uint16_t dlength);
 
-
       void theUpdateDaemon();
       bool initDaemon();
 
+      VoiceStreamer *voiceStream;
       enum PROTO_TYPE myType;
       uint32_t myUID;
       TransProtocol *masterProtocol;

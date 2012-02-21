@@ -1,4 +1,4 @@
-/** This class is used to send and receive data across the DCCP 
+/** This class is used to send and receive data across the UDP 
  * transport layer.  It is inherited from the TransProtocol class.
  *
  * @author William McVicker
@@ -7,13 +7,13 @@
 #include <unistd.h>
 #include <stdlib.h>
 #include <stdio.h>
-#include "DCCP.h"
+#include "UDP.h"
 
 #include <sstream>
 #include <iostream>
 #include <string.h>
 
-DCCP::DCCP(enum PROTO_IO protoIO, char *hostname, uint16_t portNum) {
+UDP::UDP(enum PROTO_IO protoIO, char *hostname, uint16_t portNum) {
 
    socket_num = -1;
    client_socket = -1;
@@ -30,35 +30,36 @@ DCCP::DCCP(enum PROTO_IO protoIO, char *hostname, uint16_t portNum) {
    }
 }
 
-DCCP::~DCCP() {
+UDP::~UDP() {
 
    close(socket_num);
    close(client_socket);
 }
 
-/** Opens a DCCP socket
+/** Opens a UDP socket
  * 
  * @return the socket number
  */
-int DCCP::openSocket() {
+int UDP::openSocket() {
    int reuseport;
 
-   if ((socket_num = socket(AF_INET, SOCK_DCCP, IPPROTO_DCCP)) < 0) {
+   if ((socket_num = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
       perror("socket");
-      return -1;
+      exit(EXIT_FAILURE);
    }
 
    reuseport = 0;
-   if (setsockopt(socket_num, SOL_DCCP, SO_REUSEADDR,
+   if (setsockopt(socket_num, SOL_SOCKET, SO_REUSEADDR,
             (const char *) &reuseport, sizeof(reuseport)) < 0) {
       perror("setsockopt");
-      return -1;
+      close(socket_num);
+      exit(EXIT_FAILURE);
    }
 
    return socket_num;
 }
 
-void DCCP::initMaster(uint16_t portNum) {
+void UDP::initMaster(uint16_t portNum) {
    struct sockaddr_in address;
 
    /* name the socket */
@@ -72,21 +73,10 @@ void DCCP::initMaster(uint16_t portNum) {
       close(socket_num);
       exit(EXIT_FAILURE);
    }
-
-#ifdef DEBUG
-   getPortNum();
-#endif
-
-   if (listen(socket_num, MAX_DCCP_CONNECTION_BACK_LOG) == -1) {
-      perror("listen()");
-      close(socket_num);
-      exit(EXIT_FAILURE);
-   }
-
 }
 
-void DCCP::initSlave(char *hostname, uint16_t portNum) {
-   struct addrinfo hints;
+void UDP::initSlave(char *hostname, uint16_t portNum) {
+/*   struct addrinfo hints;
    struct addrinfo *result, *rp;
    int retval, reuseport;
    stringstream myStream;
@@ -94,8 +84,7 @@ void DCCP::initSlave(char *hostname, uint16_t portNum) {
 
    memset(&hints, 0, sizeof(struct addrinfo));
    hints.ai_family = AF_INET;
-   hints.ai_socktype = SOCK_DCCP;
-   hints.ai_protocol = IPPROTO_DCCP;
+   hints.ai_socktype = SOCK_DGRAM;
 
    if ((retval = getaddrinfo(hostname, (myStream.str()).c_str(), &hints, &result)) != 0) {
       cerr << "getaddrinfo: " << gai_strerror(retval) << endl;
@@ -107,8 +96,12 @@ void DCCP::initSlave(char *hostname, uint16_t portNum) {
       if (socket_num < 0)
          continue;
 
-      if (connect(socket_num, rp->ai_addr, rp->ai_addrlen) != -1 )
+      if (connect(socket_num, rp->ai_addr, rp->ai_addrlen) != -1 ) {
+         memcpy(&client_addr, (struct sockaddr_in *) rp->ai_addr, 
+               sizeof(struct sockaddr_in));
+         client_addr_len = sizeof(struct sockaddr_in);
          break;
+      }
 
       close(socket_num);
    }
@@ -117,63 +110,78 @@ void DCCP::initSlave(char *hostname, uint16_t portNum) {
       cerr << "Could not connect to server\n";
       exit(EXIT_FAILURE);
    }
-    
+
    reuseport = 0;
    if (setsockopt(socket_num, SOL_SOCKET, SO_REUSEADDR,
             (const char *) &reuseport, sizeof(reuseport)) < 0) {
       perror("setsockopt");
       exit(EXIT_FAILURE);
    }
-   
+
    freeaddrinfo(result);
+   client_socket = socket_num;*/
+
+   struct hostent *theHost;
+
+   if ((socket_num = socket(AF_INET, SOCK_DGRAM, 0)) < 0) {
+      perror("socket");
+      exit(EXIT_FAILURE);
+   }
+
+   if (NULL == (theHost = gethostbyname(hostname))) {
+      cerr << "gethostbyname() failed!\n";
+      exit(EXIT_FAILURE);
+   }
+   memcpy(&client_addr.sin_addr, theHost->h_addr, theHost->h_length);
+
+   client_addr.sin_family = AF_INET;
+   client_addr.sin_port = htons(portNum);
+   client_addr_len = sizeof(client_addr);
+
    client_socket = socket_num;
 }
 
-/** Sends a packet over the DCCP socket 
+/** Sends a packet over the UDP socket 
  *
  * @param buf the packet to send
  * @param len the size of the packet
  * @param flags flags to set
  * @return the number of characters sent. On error, -1 is returned
  */
-int DCCP::sendPacket(const void *buf, size_t len, int flags) {
+int UDP::sendPacket(const void *buf, size_t len, int flags) {
 
-   return send(client_socket, buf, len, flags);
+   return sendto(client_socket, buf, len, flags, (struct sockaddr *) &client_addr, 
+         client_addr_len);
 }
 
-/** Gets a packet from the DCCP socket.
+/** Gets a packet from the UDP socket.
  *
  * @param buf the buffer to store the packet in
  * @param len the length of the packet received
  * @param flags flags that indicate how to receive the packet
  * @return the number of bytes received. On error, -1 is returned
  */
-int DCCP::recvPacket(void *buf, size_t len, int flags) {
-   
-   return recv(client_socket, buf, len, flags);
+int UDP::recvPacket(void *buf, size_t len, int flags) {
+
+   return recvfrom(client_socket, buf, len, 0, (struct sockaddr *) &client_addr, 
+         &client_addr_len);
 }
 
 /** Identifies who is calling 
  *
  * @return the uid of the person calling when successful, else 0
  */
-uint32_t DCCP::getCallerID() {
+uint32_t UDP::getCallerID() {
    int status, rec_size;
    packet initPacket;
 
-   temp_socket = accept(socket_num, NULL, NULL);
-   if (temp_socket < 0) {
-      perror("accept()");
-      return 0;
-   }
-
-   status = select_call(&temp_socket, 1, INIT_TIMEOUT, 0);
+   status = select_call(&socket_num, 1, INIT_TIMEOUT, 0);
    if (status) {
-      rec_size = recv(temp_socket, (void *) &initPacket, sizeof(packet), 0);
+      rec_size = recvfrom(socket_num, (void *) &initPacket, sizeof(packet), 0,
+            (struct sockaddr *) &client_addr, &client_addr_len);
       if (rec_size == 0) {
-         // session was shutdown
 #ifdef DEBUG
-         cerr << "getCallerID: temp_socket shutdown\n";
+         cerr << "getCallerID: socket_num shutdown\n";
 #endif
       } else if (rec_size != sizeof(packet)) {
          perror("recv()");
@@ -182,21 +190,19 @@ uint32_t DCCP::getCallerID() {
       }
    }
 
-   close(temp_socket);
    return 0;
 }
 
-void DCCP::ignoreCaller() {
+void UDP::ignoreCaller() {
 
-   close(temp_socket);
 }
 
-void DCCP::answerCall() {
+void UDP::answerCall() {
 
-   client_socket = temp_socket;
+   client_socket = socket_num;
 }
 
-void DCCP::endCall() {
+void UDP::endCall() {
 
    close(client_socket);
 }
