@@ -8,7 +8,7 @@ from exceptions import Exception
 from structlib import *
 from common import *
 from struct import error
-from itertools import chain, starmap
+from itertools import izip_longest, starmap
 import socket
 import hashlib
 import dao
@@ -20,7 +20,7 @@ dbdao = dao.dao()
 Grabbed from python documentation for backwards compatibility with 2.5
 (because Vogon is old)
 '''
-
+'''
 class ZipExhausted(Exception):
    pass
 
@@ -39,6 +39,7 @@ def izip_longest(*args, **kwds):
          yield tuple(map(next, iterators))
    except ZipExhausted:
       pass
+'''
 
 def runUpdateDaemon(restartTimerFunc):
     updateDao = dao.dao()

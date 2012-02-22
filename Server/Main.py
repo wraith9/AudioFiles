@@ -7,9 +7,15 @@ Created on Feb 4, 2012
 import asyncore
 import server
 import sys
+import commands
 
 if __name__ == '__main__':
-    server.ChatServer('localhost', 9999)
+    ipaddr = commands.getoutput('/bin/hostname -I').strip()
+    port = 9999
+    if len(sys.argv) > 1:
+        port = int(sys.argv[1])
+    print "Listening on Address {}:{}".format(ipaddr, port)
+    server.ChatServer(ipaddr, port)
     try:
         asyncore.loop()
     except KeyboardInterrupt:

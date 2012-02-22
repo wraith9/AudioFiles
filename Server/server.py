@@ -28,9 +28,12 @@ class ChatHandler(asyncore.dispatcher):
             pass
         
     def handle_close(self):
+        self.close()
+        
+    def close(self):
         if hasattr(self, 'reqHandler'):
             del self.reqHandler
-        self.close()
+        asyncore.dispatcher.close(self)
 
 class ChatServer(asyncore.dispatcher):
     '''
