@@ -10,7 +10,7 @@ import sys
 import commands
 
 if __name__ == '__main__':
-    ipaddr = commands.getoutput('/bin/hostname -I').strip()
+    ipaddr = commands.getoutput('/bin/hostname -I').split("\n")[0].strip()
     port = 9999
     if len(sys.argv) > 1:
         port = int(sys.argv[1])

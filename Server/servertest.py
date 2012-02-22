@@ -11,7 +11,7 @@ import commands
 
 class Test(unittest.TestCase):
     maxsize = 1400 + struct.calcsize("!IBH")
-    ipaddr = commands.getoutput('/bin/hostname -I')
+    ipaddr = commands.getoutput('/bin/hostname -I').split("\n")[0].strip()
 
     # TODO: Update tests as needed
     def testValidLogin(self):
