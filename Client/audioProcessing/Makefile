@@ -17,14 +17,15 @@ SIZE64=-m64
 
 SIZE=$(SIZE32)
 CFLAGS=-g -Wall -c -Werror -O2 -pedantic $(SIZE) -O2
-LDFLAGS=$(SIZE) -lasound
+LDFLAGS=$(SIZE) 
+LIB=-lasound
 
 ALL=testVS
 
 all: $(ALL)
 
 testVS: testVS.o VoiceStreamer.o
-	$(CC) $(LDFLAGS) -o $@ $^
+	$(CC) $(LDFLAGS) -o $@ $^ $(LIB)
 
 testVS.o: testVS.cpp VoiceStreamer.h
 	$(CC) $(CFLAGS) -c $<
