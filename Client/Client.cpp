@@ -251,8 +251,6 @@ void Client::startChat(TransProtocol *commProtocol) {
    int status, tempFile = -1;
    boost::posix_time::milliseconds sleep_time(50);
 
-   numRecvPackets = 0;
-   numSentPackets = 0;
 
    // XXX Debugging ///////////
    if (audioToFile) {
@@ -282,6 +280,9 @@ void Client::startChat(TransProtocol *commProtocol) {
    initPacketHeader(&ourPacket, myUID, AUDIO_DATA_T, BUF_LEN);
 
    cout << "\nConnected! Start talking...\n";
+
+   numRecvPackets = 0;
+   numSentPackets = 0;
 
    while (!endChatting) {
       if (commProtocol->waitForResponse(0)) {
