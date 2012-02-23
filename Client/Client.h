@@ -52,6 +52,8 @@ class Client {
       uint32_t callerID;
       map<uint32_t, friend_list> myFriends;
 
+      bool endChatting;
+
    private:
       void startChat(TransProtocol *commProtocol);
       uint16_t getFriendAddr(carOutFormat *theData, uint32_t friendId);

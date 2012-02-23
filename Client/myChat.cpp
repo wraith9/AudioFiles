@@ -11,6 +11,7 @@
 #include <string.h>
 
 #include <sstream>
+#include <signal.h>
 
 #include "myChat.h"
 
@@ -81,9 +82,14 @@ void startStateMachine() {
             state = IDLE_S;
          break;
       case CHATTING_S:
+         int temp;
          while (theClient->chatting) {
-            if (theClient->waitForRequests(1))
-               theClient->acceptNewCall();
+            if ((temp = theClient->waitForRequestsOrInput(1))) {
+               if ((temp-1) == STDIN_FILENO)
+                  state = getUserInput();
+               else
+                  theClient->acceptNewCall();
+            }
          }
 
          state = IDLE_S;
@@ -178,6 +184,9 @@ enum CLIENT_STATE getUserInput() {
       case 2: // Quit
          delete theClient;
          exit(EXIT_SUCCESS);
+      case 3: // end call
+         theClient->endChatting = true;
+         break;
       }
    }
 

@@ -15,16 +15,12 @@
 
 extern bool audioToFile;
 
-volatile sig_atomic_t endChat = 0;
-void sleep_handle(int sig, siginfo_t *si, void *unused) {
-   endChat = 1;
-}
+
 
 /** This constructor specifies which transport protocol to use
  * @param type the type of transport protocol, i.e. DCCP, TCP, or UDP
  */
 Client::Client(char *serverHostname, enum PROTO_TYPE type) {
-   struct sigaction endSessionAction;
 
    theServerName = serverHostname;
 
@@ -32,14 +28,7 @@ Client::Client(char *serverHostname, enum PROTO_TYPE type) {
    callerID = 0;
    myType = type;
 
-   sigemptyset(&endSessionAction.sa_mask);
-   endSessionAction.sa_sigaction = sleep_handle;
-   endSessionAction.sa_flags = 0;
-
-   if (sigaction(SIGINT, &endSessionAction, NULL) == -1) {
-      perror("Signal Handler Assignment");
-      exit(EXIT_FAILURE);
-   }
+   endChatting = false;
 
 }
 
@@ -183,6 +172,7 @@ void Client::acceptNewCall() {
    } else {
       masterProtocol->answerCall();
       chatting = true;
+      endChatting = false;
       m_thread = boost::shared_ptr<boost::thread>(
             new boost::thread(boost::bind(&Client::startChat, this,
                   masterProtocol)));
@@ -248,6 +238,7 @@ void Client::connectToFriend() {
       m_thread->join();
 
    chatting = true;
+   endChatting = false;
    m_thread = boost::shared_ptr<boost::thread>(
          new boost::thread(boost::bind(&Client::startChat, this,
                slaveProtocol)));
@@ -292,7 +283,7 @@ void Client::startChat(TransProtocol *commProtocol) {
 
    cout << "\nConnected! Start talking...\n";
 
-   while (endChat == 0) {
+   while (!endChatting) {
       if (commProtocol->waitForResponse(0)) {
          status = commProtocol->recvPacket((void *) &theirPacket,
                sizeof(packet), 0);
