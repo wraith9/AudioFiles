@@ -181,6 +181,10 @@ void Client::makeCall(uint32_t friendId) {
    if (!getFriendAddr(&friendAddr, friendId))
       return;
 
+   cerr << "Got the friend information: ";
+   cerr << inet_ntoa(friendAddr.friendIP) << " ";
+   cerr << ntohs(friendAddr.portNum) << endl;
+
    if (dynamic_cast<DCCP *>(masterProtocol))
       slaveProtocol = new DCCP(CLIENT_IO, inet_ntoa(friendAddr.friendIP), 
             ntohs(friendAddr.portNum));
@@ -298,11 +302,12 @@ void Client::startChat(TransProtocol *commProtocol) {
             voiceStream->fillBuffer((char *) ourPacket.data, BUF_LEN));
       status = commProtocol->sendPacket((void *) &ourPacket, sizeof(packet), 0);
       if (status < 0) {
-         perror("startChat: sendPacket()");
-         break;
+         if (errno != EAGAIN) {
+            perror("startChat: sendPacket()");
+            break;
+         }
       }
 
-      //boost::this_thread::sleep(sleep_time);
    }
 
    delete voiceStream;
