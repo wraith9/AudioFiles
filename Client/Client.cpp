@@ -11,18 +11,35 @@
 
 #include <time.h>
 
+#include <signal.h>
+
 extern bool audioToFile;
+
+volatile sig_atomic_t endChat = 0;
+void sleep_handle(int sig, siginfo_t *si, void *unused) {
+   endChat = 1;
+}
 
 /** This constructor specifies which transport protocol to use
  * @param type the type of transport protocol, i.e. DCCP, TCP, or UDP
  */
 Client::Client(char *serverHostname, enum PROTO_TYPE type) {
+   struct sigaction endSessionAction;
 
    theServerName = serverHostname;
 
    chatting = false;
    callerID = 0;
    myType = type;
+
+   sigemptyset(&endSessionAction.sa_mask);
+   endSessionAction.sa_sigaction = sleep_handle;
+   endSessionAction.sa_flags = 0;
+
+   if (sigaction(SIGINT, &endSessionAction, NULL) == -1) {
+      perror("Signal Handler Assignment");
+      exit(EXIT_FAILURE);
+   }
 
 }
 
@@ -243,6 +260,9 @@ void Client::startChat(TransProtocol *commProtocol) {
    int status, tempFile = -1;
    boost::posix_time::milliseconds sleep_time(50);
 
+   numRecvPackets = 0;
+   numSentPackets = 0;
+
    // XXX Debugging ///////////
    if (audioToFile) {
       stringstream ss;
@@ -272,7 +292,7 @@ void Client::startChat(TransProtocol *commProtocol) {
 
    cout << "\nConnected! Start talking...\n";
 
-   while (true) {
+   while (endChat == 0) {
       if (commProtocol->waitForResponse(0)) {
          status = commProtocol->recvPacket((void *) &theirPacket,
                sizeof(packet), 0);
@@ -283,6 +303,7 @@ void Client::startChat(TransProtocol *commProtocol) {
             break;
 
          if (theirPacket.type == AUDIO_DATA_T) {
+            numRecvPackets++;
             if (!audioToFile) {
                voiceStream->playBuffer((char *) theirPacket.data, 
                      ntohs(theirPacket.dlength));
@@ -306,9 +327,13 @@ void Client::startChat(TransProtocol *commProtocol) {
             perror("startChat: sendPacket()");
             break;
          }
-      }
+      } else
+         numSentPackets++;
 
    }
+
+   cout << "Number of packets sent: " << numSentPackets << endl;
+   cout << "Number of packets received: " << numRecvPackets << endl;
 
    delete voiceStream;
    cout << "Call ended.\n";

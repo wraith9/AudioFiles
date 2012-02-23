@@ -80,6 +80,9 @@ class Client {
       // temporary variables till be get friend db
       uint16_t friendPort;
       string theHost;
+
+      uint32_t numSentPackets;
+      uint32_t numRecvPackets;
 };
 
 #endif
