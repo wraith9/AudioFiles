@@ -7,13 +7,12 @@ Created on Feb 4, 2012
 import asyncore
 import server
 import sys
-import commands
 
 if __name__ == '__main__':
-    ipaddr = commands.getoutput('/bin/hostname -I').split("\n")[0].strip()
+    ipaddr = sys.argv[1]
     port = 9999
-    if len(sys.argv) > 1:
-        port = int(sys.argv[1])
+    if len(sys.argv) > 2:
+        port = int(sys.argv[2])
     print "Listening on Address {}:{}".format(ipaddr, port)
     server.ChatServer(ipaddr, port)
     try:
