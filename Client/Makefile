@@ -4,11 +4,11 @@ CC = g++
 CFLAGS = -g -Wall -c -Werror -lsocket -lnsl -O2
 LIBS = -lboost_thread-mt -lpthread -lasound
 
-ALL = audioProcessing/VoiceStreamer.o myChat 
+ALL = audioProcessing/VoiceStreamer.o audioProcessing/Semaphore.o myChat 
 
 all: $(ALL)
 
-myChat: myChat.o Client.o updateDaemon.o TransProtocol.o DCCP.o TCP.o UDP.o util.o VoiceStreamer.o
+myChat: myChat.o Client.o updateDaemon.o TransProtocol.o DCCP.o TCP.o UDP.o util.o VoiceStreamer.o Semaphore.o
 	$(CC) -o $@ $^ $(LIBS) 
 
 myChat.o: myChat.cpp myChat.h Client.h
@@ -41,7 +41,10 @@ client.o: client.cpp
 util.o: util.c
 	$(CC) $(CFLAGS) -c $<
 
-audioProcessing/VoiceStreamer.o: audioProcessing/VoiceStreamer.cpp audioProcessing/VoiceStreamer.h
+audioProcessing/VoiceStreamer.o: audioProcessing/VoiceStreamer.cpp audioProcessing/VoiceStreamer.h audioProcessing/Semaphore.h
+	$(CC) $(CFLAGS) -c $< 
+
+audioProcessing/Semaphore.o: audioProcessing/Semaphore.cpp audioProcessing/Semaphore.h
 	$(CC) $(CFLAGS) -c $< 
 
 clean: 

@@ -5,7 +5,10 @@
 #include "VoiceStreamer.h"
 
 
-VoiceStreamer::VoiceStreamer() {
+VoiceStreamer::VoiceStreamer() : mutex() {
+
+   startPlayback = false;
+   nstored = new Semaphore(0);
 
    format = SND_PCM_FORMAT_S16_LE;
    rate = 8000;
@@ -26,13 +29,17 @@ VoiceStreamer::VoiceStreamer() {
 }
 
 VoiceStreamer::~VoiceStreamer() {
+   
+   m_playbackThread->join();
 
    delete buffer;
+   delete nstored;
 
    if (phandle) 
       snd_pcm_close(phandle);
    if (chandle)
       snd_pcm_close(chandle);
+
 }
 
 bool VoiceStreamer::initDevice() {
@@ -57,8 +64,8 @@ bool VoiceStreamer::initDevice() {
    latency = latency_min - 4;
    buffer = new char[(latency_max*snd_pcm_format_width(format)/8)*2];
 
-   if (setparams_p(phandle, &latency) < 0) 
-      return false;
+//   if (setparams_p(phandle, &latency) < 0) 
+//      return false;
    if (setparams_c(chandle, &latency) < 0) 
       return false;
    if ((err = snd_pcm_start(chandle)) < 0) {
@@ -72,57 +79,101 @@ bool VoiceStreamer::initDevice() {
    return true;
 }
 
-/** Plays the audio contained in the provided buffer.
- *
- * @param data the audio to play
- * @param len the length of the data parameter
- */
-void VoiceStreamer::playBuffer(char *data, int len) {
-   int data_left = len; 
-   ssize_t r;
-   char *data_ptr = data;
-   bool done = false;
+void VoiceStreamer::addToBuffer(packet &dataPacket) {
 
-   while (!done) {
-      while (frames_in < loop_limit) {
-         if (data_left > latency<<2) {
-            memcpy(buffer, data_ptr, latency<<2);
-            data_ptr += (latency<<2);
-            data_left -= (latency<<2);
-            r = (latency<<2);
-         } else {
-            memcpy(buffer, data_ptr, data_left);
-            data_ptr += data_left;
-            r = data_left;
-            data_left = 0;
-         }
+   boost::mutex::scoped_lock scoped_lock(mutex);
+   packetBuffer.push_front(dataPacket);
+   if (!startPlayback && ((int) packetBuffer.size() > MIN_PACKET_BUF)) {
+      m_playbackThread = boost::shared_ptr<boost::thread>(
+         new boost::thread(boost::bind(&VoiceStreamer::playbackAudio, this)));
+      startPlayback = true;
+   }
+   nstored->signal();
+
+}
+
+bool VoiceStreamer::popAudioPacket(packet &audioPacket) {
+   boost::system_time const timeout = boost::get_system_time() +
+      boost::posix_time::milliseconds(1000);
+
+   if (!nstored->timed_wait(timeout)) {
+      fprintf(stderr, "Audio Playback Thread: timed out\n");
+      return false;
+   }
+   boost::mutex::scoped_lock scoped_lock(mutex);
+   audioPacket = packetBuffer.back();
+   packetBuffer.pop_back();
+
+   return true;
+}
+
+/** Plays the audio contained packets queue that is filled by the 
+ * chatting thread with received packets.
+ */
+void VoiceStreamer::playbackAudio() {
+   int data_left, r;
+   packet audioPacket;
+   uint8_t *data_ptr;
+   bool done = false;
+   int pLatency = latency_min - 4;
+   size_t pframes_in, pframes_out, pin_max;
+
+   // Init playback device
+   if (setparams_p(phandle, &pLatency) < 0) {
+      fprintf(stderr, "Playback Audio Thread: exiting due to setparams_p error\n");
+      return;
+   }
+   pframes_in = pframes_out = 0;
+   pin_max = 0;
+
+   while (true) {
+      if (!popAudioPacket(audioPacket))
+         break;
+      
+      data_ptr = audioPacket.data;
+      data_left = (int) ntohs(audioPacket.dlength);
+      while (pframes_in < loop_limit) {
+         if (data_left > (pLatency<<2)) 
+            r = pLatency;
+         else
+            r = data_left>>2;
 
          if (r > 0) {
-            frames_in += r>>2;
-            if ((ssize_t) in_max < (r>>2))
-               in_max = (r>>2);
+            pframes_in += r;
+            if ((int) pin_max < r)
+               pin_max = r;
 
-            if (writebuf(phandle, buffer, r>>2, &frames_out) < 0) 
+            if (writebuf(phandle, (char *) data_ptr, r, &pframes_out) < 0)  {
                break;
-
+            }
          } else if (r == 0) { // done reading input file
             done = true;
             break;
-         } else
+         } else {
             break;
+         }
+
+         if (data_left > (pLatency<<2)) {
+            data_ptr += (pLatency<<2);
+            data_left -= (pLatency<<2);
+         } else {
+            data_ptr += data_left;
+            data_left = 0;
+         }
       }
 
       if (!done) {
-         /*snd_pcm_nonblock(phandle, 0);
-         snd_pcm_drain(phandle);
-         snd_pcm_hw_free(phandle);*/
-
-         frames_in = frames_out = in_max = 0;
-         if (setparams_p(phandle, &latency) < 0) 
+         done = false;
+   /*snd_pcm_nonblock(phandle, 0);snd_pcm_drain(phandle);snd_pcm_hw_free(phandle);*/
+         pframes_in = pframes_out = pin_max = 0;
+         if (setparams_p(phandle, &pLatency) < 0)  {
+            fprintf(stderr, "setparams_p < 0!\n");
             break;
+         }
       }
    }
 
+   fprintf(stderr, "Playback Audio Thread exitting!\n");
 }
 
 /** Fills the input buffer with audio data from the microphone.

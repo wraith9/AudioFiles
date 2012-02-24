@@ -11,11 +11,7 @@
 
 #include <time.h>
 
-#include <signal.h>
-
 extern bool audioToFile;
-
-
 
 /** This constructor specifies which transport protocol to use
  * @param type the type of transport protocol, i.e. DCCP, TCP, or UDP
@@ -297,8 +293,7 @@ void Client::startChat(TransProtocol *commProtocol) {
          if (theirPacket.type == AUDIO_DATA_T) {
             numRecvPackets++;
             if (!audioToFile) {
-               voiceStream->playBuffer((char *) theirPacket.data, 
-                     ntohs(theirPacket.dlength));
+               voiceStream->addToBuffer(theirPacket);
             } else {
                int numW;
                if ((numW = write(tempFile, theirPacket.data, 
@@ -310,6 +305,7 @@ void Client::startChat(TransProtocol *commProtocol) {
             }
          }
       }
+
 
       ourPacket.dlength = htons(
             voiceStream->fillBuffer((char *) ourPacket.data, BUF_LEN));

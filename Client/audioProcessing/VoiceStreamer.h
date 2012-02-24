@@ -10,8 +10,19 @@
 
 #include <stdint.h>
 
+#include <boost/bind.hpp>
+#include <boost/thread/mutex.hpp>
+#include <boost/thread/thread.hpp>
+#include <boost/shared_ptr.hpp>
+
 #define ALSA_PCM_NEW_HW_PARAMS_API
 #include <alsa/asoundlib.h>
+
+#include <list>
+#include "../common.h"
+#include "Semaphore.h"
+
+#define MIN_PACKET_BUF 5 
 
 class VoiceStreamer {
    public:
@@ -19,12 +30,12 @@ class VoiceStreamer {
       ~VoiceStreamer();
 
       bool initDevice();
-      void playBuffer(char *data, int len);
+      void addToBuffer(packet &dataPacket);
       uint16_t fillBuffer(char *data, int len);
 
    private:
       snd_pcm_format_t format;
-      int rate, channels, buffer_size, period_size,latency;
+      int rate, channels, buffer_size, period_size, latency;
       int latency_min, latency_max, loop_sec, resample;
       unsigned long loop_limit;
       char *buffer;
@@ -32,7 +43,12 @@ class VoiceStreamer {
 
       snd_output_t *output;
       snd_pcm_t *phandle, *chandle;  // the playback and capture handles
-
+      std::list<packet> packetBuffer;
+      
+      bool startPlayback;
+      boost::shared_ptr<boost::thread> m_playbackThread;
+      boost::mutex mutex;
+      Semaphore *nstored;
 
       int setparams_set(snd_pcm_t *handle, snd_pcm_hw_params_t *params,
             snd_pcm_sw_params_t *swparams, const char *id);
@@ -46,6 +62,8 @@ class VoiceStreamer {
             size_t *max);
       long writebuf(snd_pcm_t *handle, char *buf, long len, size_t *frames);
 
+      bool popAudioPacket(packet &audioPacket);
+      void playbackAudio(); // the playbackThread function
 };
 
 #endif
