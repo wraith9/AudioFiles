@@ -164,7 +164,10 @@ void VoiceStreamer::playbackAudio() {
 
       if (!done) {
          done = false;
-   /*snd_pcm_nonblock(phandle, 0);snd_pcm_drain(phandle);snd_pcm_hw_free(phandle);*/
+         snd_pcm_nonblock(phandle, 0);
+         snd_pcm_drain(phandle);
+         snd_pcm_hw_free(phandle);
+
          pframes_in = pframes_out = pin_max = 0;
          if (setparams_p(phandle, &pLatency) < 0)  {
             fprintf(stderr, "setparams_p < 0!\n");
@@ -215,9 +218,9 @@ uint16_t VoiceStreamer::fillBuffer(char *data, int len) {
       }
       
       if (!done) {
-         /*snd_pcm_drop(chandle);
+         snd_pcm_drop(chandle);
          snd_pcm_unlink(chandle);
-         snd_pcm_hw_free(chandle);*/
+         snd_pcm_hw_free(chandle);
          
          frames_in = frames_out = in_max = 0;
          if (setparams_c(chandle, &latency) < 0) 
