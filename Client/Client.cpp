@@ -320,7 +320,9 @@ void Client::startChat(TransProtocol *commProtocol) {
 
    }
 
-   while (commProtocol->waitForResponse(30)) {
+   cerr << "Exitted the LOOOOOOP!!!\n";
+   commProtocol->shutdownWR();
+   while (commProtocol->waitForResponse(5)) {
       if (commProtocol->recvPacket((void *) &theirPacket, sizeof(packet), 0) > 0) {
          if (theirPacket.type == AUDIO_DATA_T) 
                numRecvPackets++;
@@ -333,7 +335,6 @@ void Client::startChat(TransProtocol *commProtocol) {
 
    delete voiceStream;
    cout << "Call ended.\n";
-   commProtocol->endCall();
    chatting = false;
 }
 
