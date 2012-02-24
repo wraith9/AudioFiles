@@ -32,7 +32,6 @@ class TransProtocol {
       virtual void ignoreCaller() =0;
       virtual void answerCall() =0;
       virtual void endCall() =0;
-      int shutdownWR();
 
       TransProtocol &operator=(const TransProtocol &right);
 

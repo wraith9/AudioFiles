@@ -319,16 +319,7 @@ void Client::startChat(TransProtocol *commProtocol) {
          numSentPackets++;
 
    }
-
-   cerr << "Exitted the LOOOOOOP!!!\n";
-   commProtocol->shutdownWR();
-   while (commProtocol->waitForResponse(5)) {
-      if (commProtocol->recvPacket((void *) &theirPacket, sizeof(packet), 0) > 0) {
-         if (theirPacket.type == AUDIO_DATA_T) 
-               numRecvPackets++;
-      } else 
-         break;
-   }
+   commProtocol->endCall();
 
    cout << "Number of packets sent: " << numSentPackets << endl;
    cout << "Number of packets received: " << numRecvPackets << endl;

@@ -61,8 +61,3 @@ uint16_t TransProtocol::getPortNum() {
 
    return portNum;
 }
-
-int TransProtocol::shutdownWR() {
-
-   return shutdown(client_socket, SHUT_WR);
-}
