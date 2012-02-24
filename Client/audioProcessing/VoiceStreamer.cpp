@@ -17,7 +17,7 @@ VoiceStreamer::VoiceStreamer() : mutex() {
    period_size = 0;    // auto
    latency_min = 32;   // in frames/2
    latency_max = 2048; // in frames/2
-   loop_sec = 30;      // seconds
+   loop_sec = 60;      // seconds
    resample = 1;
    output = NULL;
    
@@ -94,7 +94,7 @@ void VoiceStreamer::addToBuffer(packet &dataPacket) {
 
 bool VoiceStreamer::popAudioPacket(packet &audioPacket) {
    boost::system_time const timeout = boost::get_system_time() +
-      boost::posix_time::milliseconds(5000);
+      boost::posix_time::milliseconds(1000);
 
    if (!nstored->timed_wait(timeout)) {
       fprintf(stderr, "Audio Playback Thread: timed out\n");
