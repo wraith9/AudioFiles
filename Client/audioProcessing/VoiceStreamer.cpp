@@ -94,7 +94,7 @@ void VoiceStreamer::addToBuffer(packet &dataPacket) {
 
 bool VoiceStreamer::popAudioPacket(packet &audioPacket) {
    boost::system_time const timeout = boost::get_system_time() +
-      boost::posix_time::milliseconds(1000);
+      boost::posix_time::milliseconds(5000);
 
    if (!nstored->timed_wait(timeout)) {
       fprintf(stderr, "Audio Playback Thread: timed out\n");
@@ -176,6 +176,7 @@ void VoiceStreamer::playbackAudio() {
       }
    }
 
+   startPlayback = false;
    fprintf(stderr, "Playback Audio Thread exitting!\n");
 }
 

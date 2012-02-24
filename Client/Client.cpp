@@ -281,7 +281,7 @@ void Client::startChat(TransProtocol *commProtocol) {
    numSentPackets = 0;
 
    while (!endChatting) {
-      if (commProtocol->waitForResponse(1)) {
+      if (commProtocol->waitForResponse(0)) {
          status = commProtocol->recvPacket((void *) &theirPacket,
                sizeof(packet), 0);
          if (status < 0) {
