@@ -71,6 +71,15 @@ slow down and continue to try and resend packets that may not be relevant by
 the time they arrive at their destination such as in meadia streaming 
 applications.
 
+DCCP is currently at the proposed standard RFC status (4340-4342).  It is 
+currently available for use through the linux socket library~\cite{dccp_website}.  
+Its main goal was "to give streaming UDP applications little reason
+not to switch to DCCP"~\cite{dccp_wg} by requiring as little overhead as 
+possible with full functionality.  The design of DCCP was geared mostly 
+toward media streaming applications which include audio, video, and gaming
+software where responsiveness is traded for a steadier, less bursty network
+connection.
+
 The main goal of this paper is to evaluate DCCP's congestion control performance
 by implementing a voice chatting application with DCCP as the underlying audio
 transmission protocol.  The voice chatting framework was designed to allow the
