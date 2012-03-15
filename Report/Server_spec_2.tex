@@ -1,0 +1,158 @@
+
+\section{Server Overview}
+
+In order to negotiate the connection setup between two or more clients, we decided to
+design and implement a server for clients to connect to. The server 
+facilitates the clients' connections statuses, similar to an instant messaging server. It
+provides a method for clients to sign on or off, a way to check friends' online
+statuses, and a method to request a friend's ip address and port.
+
+\subsection{Server Design Decisions}
+
+We had to make a number of design decisions for the server, which are described here.
+
+We'll start with the choice of language. Because the server is a separate entity from
+the chat client, we had some extra freedom for language and design choice. After all,
+the only real requirement for the server was that it be able to connect and communicate
+with each client. After some consideration, we decided to implement the server in
+Python for two main benefits. First, Python has a number of modules, including a 
+socket-based asynchronous server, available to aid with development. Second, Python's
+general syntax and ease of use makes it a great tool for creating mock-ups or
+relatively small, short-term projects. Of course, it works well for larger projects too.
+Python made coding much cleaner and more maintainable for the short term goals of our
+project.
+
+We wanted the server to perform some of the same capabilities that a watered-down chat
+server (such as one used for Skype) might have or use. To that end, we needed it to
+have login functionality and tracking. We determined that the server
+had to perform the following tasks at minimum:
+
+\begin{enumerate}
+  \item Provide a way for a user to register that he or she is online.
+  \item Provide a way for users to talk to each other.
+  \item Maintain a list of users each client is permitted to contact.
+  \item Provide information updates to each user about their friends' online statuses.
+\end{enumerate}
+
+The first task is essential because it represents
+our intention to add a server element: to keep track of users.
+By giving users a way to register that they are connected (and conversely,
+disconnected as they become so), the server could keep track of
+users as they log in or log out, allowing it to perform additional functionality. This 
+is required for task 4 and the basis of our notification system on the client side. 
+
+The second task is important because, in a typical setting, users aren't going to
+know the IP address or port number of the machines their friends are on.
+The client needs a way of obtaining this information from the server, and thus being
+able to chat with others. It is important that this information is maintained by the
+server in order to not limit which machines our users can chat on or where they can 
+chat from; therefore, a client must request for this information every time he or she
+wants to start a chatting session with one of his or her friends.
+
+Strictly speaking, only points 1 and 2 above are actually needed for a minimalistic
+server to function. The server keeps track of who is online, and tells clients where
+they can contact other clients who are online. However, we wanted our server to
+emulate a couple more features seen in commercial media streaming applications. This 
+leads to our third task: maintaining a friends list for each client.
+The server would keep a list of who is friends with whom, thereby limiting clients
+from being able to randomly call or spam other user online.
+
+The final piece of core functionality is closely related to task 3. In order
+to cache friend information on the client side (so the client won't repeatedly make requests
+for offline users), the server should be capable of periodically sending updates to each
+connected client in order to notify them of which of their friends they can call at 
+any given time.
+
+Our final core design choice relates to storage of user information. As it is rather 
+standard in industry, the server should be capable of storing information in a database 
+file that is easily accessible without any parsing or configurations. In this database, the 
+server would keep track of user and friend list information, as well as any other necessary
+information needed, i.e. ip addresses and port numbers. Although it isn't very much 
+information to keep track of, it still gives a relatively simple solution to keeping track 
+of users without.
+ 
+\subsection{Server Implementation}
+Now that we've covered the key design decisions of the server, let's describe how the server
+was implemented.
+
+Python has a number of different modules available for applications to communicate
+through using network sockets. Our first consideration was the SocketServer module. This 
+library
+provides an interface which can block receive requests, and then execute a request
+handler via a callback. Unfortunately, this module has one major flaw: it can only handle
+one user request at a time. Because the server needed to handle multiple connected users
+asynchronously, we settled on using the asyncore module. This module has essentially
+the same functionality as SocketServer, but with asynchronous I/O. In other words, each
+new incoming request executes a request handler in its own seperate thread, allowing 
+multiple clients to connect and remain logged in at the same time.
+
+In order to allow clients to log on, request information, and receive updates, it made
+sense for the server to use a reliable connection-oriented protocol. Thus, TCP was the 
+natural
+choice. When a client connects to the server, a new thread is spawned to maintain
+the connection to the client. If the client makes any requests, the response packets will 
+be sent
+directly to this child thread instead of the main server loop. Each child thread has its own
+instance of a request handler that handles the logic for reading, interpreting, and replying
+to each client request. If a client closes its connection, the thread closes as well and is
+removed from the loop. 
+
+To log in, a client establishes a connection to the server (in our tests
+the client would accept the IP address of the server as an input parameter) and sends it
+a packet with two 20 byte strings, a username and a password, padded as necessary with
+null bytes. The server then accepts the packet, verifies the username and password, and
+replies back to the client with either a success or failure packet depending on the
+validity of the credentials. The password is sent over the network as plaintext (normally
+it would be encapsulated in an SSL connection) and the server, upon reception, hashes
+the password with salt using an SHA-512 function and compares the result to the truth value 
+in the database. If the hashes match, the user is granted login priviledges. This
+security isn't hack-proof, but it at least models a standard login procedure.  Additional,
+security concerns are left for future work.
+
+Once a client successfully logs in, the server replies back with a friend list packet.
+This packet contains a list of usernames and ids of all the users a client is currently
+friends with. This packet does not contain any online statuses, and in the event of
+an overflow (more friends than can fit in the packet) the server would simply truncate
+the list. We did not run into any issues with this in testing because we only had 2
+users, but in a real-world environment this certainly would be more of a concern and 
+therefore is left for future work.
+
+Every few seconds (our implementation configured it to 4), the server sends out an
+update to each client currently maintaining a connection to it. To accomplish this,
+the server initializes a timer to provide an interrupt which executes a special method
+once per interval. This method, when run, determines who has changed status in the past
+interval (whether they went online or offline), and sends each of the clients' friends a 
+status update. To reduce the overhead of using the same
+connection, this status update would be sent via a separate connection that each client
+establishes when it first connects. When the method finishes executing, it uses a callback
+to set up a new timer interrupt. 
+
+One other capability the server provides to each client is a friend address request. Due to
+the nature of our project and the desire to not want to endlessly enter IP addresses and
+port information
+when performing tests, we implemented the ability for a client to request a friend's IP 
+address and port number
+information from the server. A client simply sends a packet containing the friend's ID and 
+the server, upon verifying the friend is indeed a friend and is online, replies with the
+IP address and the port number of that friend's computer. This information is then used
+by the client to establish a client-to-client connection that is independent of the 
+server.
+
+For sending and receiving binary data over the network, the server uses the Python struct
+module, which provides a convenient way to pack and unpack data with specific size
+limits. When sending data, the server calculates the values it needs, packs them as
+appropriate, and concatenates the values together (the struct module uses strings
+for its binary representation, in which an encoded character represents the specific values
+we want to send or receive). When receiving data, the server decrypts this encoded character
+to identify the type of packet received.
+
+To keep track of users and friends, the server uses a SQLite database consisting of
+two tables. The first table, called ``Users,'' has one row per user, with columns
+giving the username, user ID, and password hash. The second table, called ``Friends,''
+contains a row per user which includes each of the users friends. The design of this is such
+that ``A is friends with B'' and ``B is friends with A'' needs to occur in the table
+for A and B to properly communicate. In other words, for every set of friends, two rows
+in the ``Friends'' table are needed. This is not exactly the most efficient (or even the
+most reliable) way to keep track of the information, but it served its purpose well enough
+for the scope of this project. When the server wants to obtain information from the
+database, it uses the sqlite3 Python module to do so. 
