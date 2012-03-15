@@ -73,7 +73,15 @@ of users without.
  
 \subsection{Server Implementation}
 Now that we've covered the key design decisions of the server, let's describe how the server
-was implemented.
+was implemented. A generalized state diagram is shown in Fig.~\ref{fig:server_diag}.
+
+\begin{figure*}[!t]
+   \centering
+      \includegraphics[width=0.8\textwidth]{pics/Server_StateDiagram}
+   \caption{Server State Diagram demonstrating the general flow of the central server.}
+\label{fig:server_diag}
+\end{figure*}
+
 
 Python has a number of different modules available for applications to communicate
 through using network sockets. Our first consideration was the SocketServer module. This 
