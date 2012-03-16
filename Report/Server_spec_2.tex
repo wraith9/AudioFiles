@@ -2,18 +2,31 @@
 \section{Server Overview}
 
 In order to negotiate the connection setup between two or more clients, we decided to
-design and implement a server for clients to connect to. The server 
-facilitates the clients' connections statuses, similar to an instant messaging server. It
-provides a method for clients to sign on or off, a way to check friends' online
+design and implement a server application. The server 
+manages the clients' connection statuses, similar to an instant messaging
+server.
+It provides a method for clients to sign on or off, a way to check friends' online
 statuses, and a method to request a friend's ip address and port.
 
 \subsection{Server Design Decisions}
 
 We had to make a number of design decisions for the server, which are described here.
 
-We'll start with the choice of implementation language. Because the server is a separate entity from the chat client, we had some extra freedom for language and design choice. The primary requirement for the server was that it be able to connect and communicate with each client. After some consideration, we implemented the server in Python due to two main benefits it had. First, Python has a number of modules, including a socket-based asynchronous server, available to aid with development. Second, Python's general syntax and ease of use makes it a great tool for creating mock-ups or relatively small, short-term projects. Of course, it works well for larger projects too. Python made coding much cleaner and more maintainable for the goals of our project.
+We'll start with the choice of implementation language. Because the server is a
+separate entity from the chat client, we had some extra freedom for language and
+design choice. The primary requirement for the server was that it must be able
+to connect and communicate with each client. After some consideration, we
+implemented the server in Python for two main reasons. First, Python
+has a number of modules, including a socket-based asynchronous server, available
+to aid with development. Second, Python's general syntax and ease of use makes
+it a great tool for creating mock-ups or relatively small, short-term projects.
+Of course, it works well for larger projects too. Python made coding much
+cleaner and more maintainable for the goals of our project.
 
-We wanted the server to perform some of the same capabilities that a watered-down chat server (such as one used for Skype) might have or use. To that end, we needed it to have login functionality and user tracking. We determined that the server had to perform the following tasks at minimum:
+We wanted the server to perform some of the same capabilities that a
+watered-down chat server (such as one used for Skype) might have or use. To that
+end, we needed it to have login functionality and user tracking. We determined
+that the server had to perform the following tasks at minimum.
 
 \begin{enumerate}
   \item Provide a way for a user to register that he or she is online.
@@ -22,16 +35,47 @@ We wanted the server to perform some of the same capabilities that a watered-dow
   \item Provide information updates to each user about their friends' online statuses.
 \end{enumerate}
 
-The first task is essential because it represents the core reason for adding a server element: to keep track of users. By giving users a way to register that they are connected (and conversely, allow them to disconnect as needed), the server could keep track of users as they log in or log out, allowing it to perform additional functionality. This is also required for task 4 and is the basis of the notification system on the client side. 
+The first task is essential because it represents the core reason for adding a
+server element: to keep track of users. By giving users a way to register that
+they are connected (and conversely, allow them to disconnect as needed), the
+server could keep track of users as they log in or log out, allowing it to
+perform additional functionality. This is also required for task 4 and is the
+basis of the notification system on the client side.
 
-The second task is important because users shouldn't be expected to know the IP address or port number of the machines their friends are on. The client needs a way of obtaining this information from the server, and thus being able to chat with others. It is important that this information be maintained by the server so that users have more freedom when using our system. When testing, it also provided the benefit of not needing to manually enter in a new IP address/port number combination every time we want to initiate a chat session. The main drawback for this feature is that a client must request for this information every time he or she wants to start a chatting session with one of his or her friends.
+The second task is important because users shouldn't be expected to know the IP
+address or port number of the computers their friends are on. The client needs a
+way of obtaining this information from the server, and thus being able to chat
+with others. It is important that this information be maintained by the server
+so that users have more freedom when using our system. When testing, it also
+provided the benefit of not needing to manually enter in a new IP address/port
+number combination every time we want to initiate a chat session. The main
+drawback for this feature is that a client must request for this information
+every time he or she wants to start a chatting session with one of his or her
+friends.
 
-Strictly speaking, only points 1 and 2 above are actually needed for a minimalistic server to function. The server keeps track of who is online, and tells clients where they can contact other clients who are online. However, we wanted our server to emulate a couple more features seen in commercial media streaming applications. This leads to our third task: maintaining a friends list for each client.
+Strictly speaking, only points 1 and 2 above are actually needed for a
+minimalistic server to function. The server keeps track of who is online, and
+tells clients where they can contact other clients who are online. However, we
+wanted our server to emulate some additional features seen in commercial media
+streaming applications. This leads to our third task: maintaining a friends list
+for each client.
 The server keeps a list of who is friends with whom, thereby limiting clients from being able to randomly call or spam other users who might be online.
 
-The final task is fairly closely related to task 3. In order to cache friend information on the client side (so the client won't make chat requests for offline users), the server should be capable of periodically sending updates to each connected client. These updates notify the client of which of his friends he is able to call at any given time.
+The final task is fairly closely related to task 3. In order to cache friend
+information on the client side (so the client won't make chat requests for
+offline users), the server should be capable of periodically sending updates to
+each connected client. These updates notify the client of which of his friends
+he is able to call at any given time.
 
-Our final core design choice relates to storage of user information. As it is standard in industry, we decided the server should store information in a database file that is easily accessible without any parsing or configurations. In this database, the server would keep track of user and friend list information, as well as any other necessary information needed, i.e. ip addresses and port numbers. Although it isn't very much information to keep track of, it still gives a relatively simple solution to keeping track of users without the overhead of having to store information manually (such as in a text file).
+Our final core design choice relates to storage of user information. As it is
+standard in industry, we decided the server should store information in a
+database file that is easily accessible without any parsing or configurations.
+In this database, the server would keep track of user and friend list
+information, as well as any other necessary information needed, i.e. IP
+addresses and port numbers. Although it isn't very much information to keep
+track of, it still gives a relatively simple solution to keeping track of users
+without the overhead of having to store information manually (such as in a text
+file).
  
 \subsection{Server Implementation}
 Now that we've covered the key design decisions of the server, we will describe how the server
@@ -75,14 +119,14 @@ replies back to the client with either a success or failure packet depending on 
 validity of the credentials. The password is sent over the network as plaintext (normally
 it would be encapsulated in an SSL connection) and the server, upon reception, hashes
 the password with a salt using an SHA-512 function and compares the result to the stored hash value 
-in the database. If the hashes match, the user is granted login priviledges. This
+in the database. If the hashes match, the user is granted login privileges. This
 security isn't hack-proof, but it at least models a standard login procedure.  Additional
 security concerns are left for future work.
 
 Once a client successfully logs in, the server replies back with a friend list packet.
-This packet contains a list of usernames and ids of all the users a client is currently
-friends with. This packet does not contain any online statuses, and in the event of
-an overflow (more friends than can fit in the packet) the server would simply truncate
+This packet contains a list of usernames and IDs for all the client's current
+friends.
+This packet does not contain any online statuses, and in the event of an overflow (more friends than can fit in the packet) the server would simply truncate
 the list. We did not run into any issues with this in testing because we only had 2
 users, but in a real-world environment this certainly would be more of a concern and 
 therefore is left for future work.
@@ -98,13 +142,13 @@ establishes when it first connects. When the method finishes executing, it uses 
 to set up a new timer interrupt. 
 
 One other capability the server provides to each client is a friend address request. Due to
-the nature of our project and the desire to not want to endlessly enter IP addresses and
-port information
+the nature of our project and the desire to avoid repeatedly entering IP
+addresses and port information
 when performing tests, we implemented the ability for a client to request a friend's IP 
 address and port number
-information from the server. A client simply sends a packet containing the friend's ID and 
-the server, upon verifying the friend is indeed a friend and is online, replies with the
-IP address and the port number of that friend's computer. This information is then used
+information from the server. A client simply sends a packet containing the
+friend's ID. The server, upon verifying the friend is indeed a friend and is
+online, replies with the IP address and the port number of that friend's computer. This information is then used
 by the client to establish a client-to-client connection that is independent of the 
 server. Because we did not desire an intermediary machine, we chose not to route client to client
 communication through the server itself.
