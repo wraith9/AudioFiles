@@ -51,7 +51,7 @@
 
 \begin{abstract}
 \boldmath 
-This paper aims to build a framework that utilizes the Data Congestion Control Protocol (DCCP) in order to experimentally test its congestion control system.  DCCP is a hybrid between TCP and UDP in that it offers congestion control across an unreliable transmission protocol along with a connection-oriented setup and teardown design. Applications that do not require a reliable connection, but desire to trasmit data at high rates are the ideal users of DCCP, i.e. audio streaming, video streaming, and video games. This paper proposes the design of an audio chatting application that has a framework capable of swapping out different transport layer protocols.  Specifically, three protocols were selected: DCCP, TCP, and UDP.  By abstracting out the transport layer at the application level, we can easily compare and contrast the differences in jitter and packet loss between the three different transport layer protocols in an audio streaming/chatting environment.
+This paper aims to build a framework that utilizes the Data Congestion Control Protocol (DCCP) in order to experimentally test its congestion control system.  DCCP is a hybrid between TCP and UDP in that it offers congestion control across an unreliable transmission protocol along with a connection-oriented setup and teardown design. Applications that do not require a reliable connection, but desire to trasmit data at high rates are the ideal users of DCCP, i.e. audio streaming, video streaming, and video games. This paper proposes the design of an audio chatting application that has a framework capable of swapping out different transport layer protocols.  Specifically, three protocols were selected: DCCP, TCP, and UDP.  By abstracting out the transport layer at the application level, we can easily compare and contrast the differences in jitter and packet loss between the three different transport layer protocols in an audio streaming/chatting environment. We found that UDP was the least affected by network congestion.  DCCP was not significantly affected between 9Mbits/s and 10Mbits/s with regards to packet loss and jitter.  Between DCCP and TCP, we found DCCP having a higher average packet loss percentage than the other two protocols.  For jitter, DCCP had a steeper change in jitter over time where TCP had a more graduale increase in jitter over time. Overall, we found the congestion contol system implemented in DCCP to behave similar to how TCP behaves with a slightly more packet loss for DCCP.
 
 \end{abstract}
 
@@ -140,7 +140,7 @@ that communicate with a central server to retrieve information about how to call
 other clients as well as the current status of the user's friends. The server 
 maintains a database used to authenticate each user upon starting the application.
 After logging into the system, the server is used as an intermediary for the clients
-to retrieve current information about the user's friends' status, hostname, and
+to retrieve current information about the user's friends' statuses, hostname, and
 port number. This information can be used to request a chatting session with another
 client that is logged onto the server.  Fig.~\ref{fig:setup} shows a high-level
 network topology representation of what a set of clients logged into this chatting 
@@ -156,7 +156,20 @@ the following sections.
 \section{Conclusion}
 \label{sec:concl}
 
-From the results we can see that ....
+Overall, we found that UDP was the least affected by network congestion.  DCCP was not 
+significantly affected between 9Mbits/s and 10Mbits/s with regards to packet loss and 
+jitter.  Between DCCP and TCP, DCCP had a higher average packet loss 
+percentage than the other two protocols.  For jitter, DCCP had a larger percentage
+of packets clustering around the same jitter value where TCP had more varied jitter. 
+Overall, 
+we found the congestion contol system implemented in DCCP to behave similar to how TCP 
+behaves with a slightly higher packet loss percentage for DCCP. It was expected that 
+DCCP should behave similar to TCP since the congestion control is modelled after it. 
+Unexpectedly, DCCP didn't have a significant difference in packet loss as TCP did. 
+This may be attributed to our small network setup (2 computers) as well as testing 
+only on a local network.  When running over the internet, higher delays could 
+occur with an increased likelihood of lost packets due to many environment variables 
+introduced.  This should be a focus for future work.
 
 \balance
 \bibliography{references}
