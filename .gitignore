@@ -9,10 +9,10 @@ Client/.project
 Client/audioProcessing/testVS
 Client/audioProcessing/*.o
 Client/audioSession*
-Report/Client_Chapter.aux
-Report/Client_Chapter.pdf
-Report/Client_Chapter.log
-Report/Client_Chapter.idx
-Report/Client_Chapter.dvi
-Report/Client_Chapter.blg
-Report/Client_Chapter.bbl
+Report/*.aux
+Report/*.pdf
+Report/*.log
+Report/*.idx
+Report/*.dvi
+Report/*.blg
+Report/*.bbl

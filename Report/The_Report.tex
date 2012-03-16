@@ -1,0 +1,176 @@
+%%%%%%%%%%%%%%%%%%%% The_Report.tex %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%
+% The AudioFiles Voice Chatting Report
+%
+% author: William McVicker, Tim Biggs, Chris Hoover
+%
+%%%%%%%%%%%%%%%% Springer %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+% RECOMMENDED %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\documentclass[letterpaper, 9 pt, balance, conference]{ieeeconf} 
+
+\usepackage{float}
+\usepackage{amsmath}        % need for equations
+\usepackage{mathptmx}       % selects Times Roman as basic font
+\usepackage{helvet}         % selects Helvetica as sans-serif font
+\usepackage{courier}        % selects Courier as typewriter font
+%
+\usepackage{makeidx}         % allows index generation
+\usepackage{graphicx}        % standard LaTeX graphics tool
+\usepackage{subfig}
+                             % when including figure files
+\usepackage{multicol}        % used for the two-column index
+\usepackage{balance}
+% see the list of further useful packages
+% in the Reference Guide
+
+\makeindex             % used for the subject index
+                       % please use the style svind.ist with
+                       % your makeindex program
+
+\newcommand{\thickhline}{\noalign{\hrule height 1.0pt}}
+\newcommand{\tab}{$\hspace{6pt}$}
+\newcommand{\mathbi}[1]{\textbf{\em #1}}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\begin{document}
+
+\bibliographystyle{IEEEtran}
+
+\title{Audio Data Transmission using DCCP Transport Protocol}
+
+\author{\authorblockN{Chris Hoover\authorrefmark{1}, Tim Biggs\authorrefmark{1}, William McVicker\authorrefmark{1}}$\vspace{3pt}$
+\authorblockA{\authorrefmark{1}California Polytechnic State University\\
+   San Luis Obispo, CA 93407 USA\\%
+   Email: chhover@, tebiggs@, wmcvicke@calpoly.edu}%
+}
+
+\maketitle
+\IEEEpeerreviewmaketitle
+
+\begin{abstract}
+\boldmath 
+This paper aims to build a framework that utilizes the Data Congestion Control Protocol (DCCP) in order to experimentally test its congestion control system.  DCCP is a hybrid between TCP and UDP in that it offers congestion control across an unreliable transmission protocol along with a connection-oriented setup and teardown design. Applications that do not require a reliable connection, but desire to trasmit data at high rates are the ideal users of DCCP, i.e. audio streaming, video streaming, and video games. This paper proposes the design of an audio chatting application that has a framework capable of swapping out different transport layer protocols.  Specifically, three protocols were selected: DCCP, TCP, and UDP.  By abstracting out the transport layer at the application level, we can easily compare and contrast the differences in jitter and packet loss between the three different transport layer protocols in an audio streaming/chatting environment. We found that UDP was the least affected by network congestion.  DCCP was not significantly affected between 9Mbits/s and 10Mbits/s with regards to packet loss and jitter.  Between DCCP and TCP, we found DCCP having a higher average packet loss percentage than the other two protocols.  For jitter, DCCP had a steeper change in jitter over time where TCP had a more graduale increase in jitter over time. Overall, we found the congestion contol system implemented in DCCP to behave similar to how TCP behaves with a slightly more packet loss for DCCP.
+
+\end{abstract}
+
+\section{Introduction}
+\label{sec:intro}
+
+Data Congestion Control Protocol (DCCP) is a transport layer protocol that
+implements congestion control over an unreliable network~\cite{kohler06}. 
+This protocol is a hybrid between UDP and TCP in that it contains the benefits
+of unreliability provided by UDP along with the congestion control system found in 
+TCP. DCCP originated due to the problem that occurs when transmitting data
+at high rates across a network with overloading background traffic. In this
+scenario, UDP will continue to transmit packets over the network, which will 
+likely be dropped and increase network congestion while TCP would increasingly
+slow down and continue to try and resend packets that may not be relevant by 
+the time they arrive at their destination such as in meadia streaming 
+applications.
+
+DCCP is currently at the proposed standard RFC status (4340-4342).  It is 
+currently available for use through the linux socket library~\cite{dccp_website}.  
+Its main goal was "to give streaming UDP applications little reason
+not to switch to DCCP"~\cite{dccp_wg} by requiring as little overhead as 
+possible with full functionality.  The design of DCCP was geared mostly 
+toward media streaming applications which include audio, video, and gaming
+software where responsiveness is traded for a steadier, less bursty network
+connection.
+
+The main goal of this paper is to evaluate DCCP's congestion control performance
+by implementing a voice chatting application with DCCP as the underlying audio
+transmission protocol.  The voice chatting framework was designed to allow the
+user, upon running the application, choose between DCCP, UDP, and TCP as the
+transport layer protocol of choice for transmitting audio packets. This is done
+by building a framework that abstracts out the transport layer protocol at the
+application layer. With this framework, we can observe differences in speed, 
+jitter, and packet loss.
+
+
+\section{Background}
+\label{sec:backg}
+
+The most popular transport layer protocols in use are TCP and UDP.  Both of these
+protocols have their places in the networks realm and perform well under their 
+respective applications.  TCP is known mainly for it reliability along with its
+congestion control system while UDP favors timeliness over reliability.  With the
+increase in media streaming over the past decade, the idea of timeliness has
+become a very important feature.  We as humans, would rather compromise video
+quality for synchronized audio and video mainly due to our abilities to deduce
+information from segments of information.  Therefore, using a protocol such as UDP
+that doesn't worry about loosing a few packets over time is preferred for this type 
+of application.  However, when transmitting data that would be corrupt if pieces 
+were lost, a reliable protocol must be used to maintain file integrity.  TCP was
+designed for this very reason and is widely used as the standard reliable transport
+layer protocol.
+
+Even though both of these protocols cover the two extremes: reliable and unreliable
+networks, at times a hybrid of the two is desireable.  A situation
+that may arise is when media streaming occurs on a congested network. 
+Congested networks cause extreme amounts of delay to TCP connections because of
+the increased packet loss and the recovery TCP takes to maintain its reliability. 
+So using TCP automatically is removed from the desireable options.  For
+UDP connections, we can see that there is no traffic speed limit to restrict the
+transmission rate UDP utilizes aside from the physical restrictions.  Therefore, 
+applications that use UDP actually
+may cause a network to become congested due to the high bursts that occur when
+trasmitting large blocks of data.  Streaming video with encoding is a good example 
+of applications that cause a varying datagram size, specifically MPEG's key frames
+verus incremental frames.
+
+DCCP was designed for this very purpose: to support congestion control on an 
+unreliable network.  Not only do the authors of DCCP succesfully implement an 
+unreliable transport layer protocol with congestion control support, but it also 
+sheds light on the complexity of TCP.
+
+\section{Architecture}
+\label{sec:architec}
+
+\begin{figure}[h]
+   \centering
+      \includegraphics[width=0.4\textwidth]{pics/setup}
+   \caption{High-level diagram of how the voice chatting application is setup.}
+\label{fig:setup}
+\end{figure}
+
+The voice chatting application was designed to work with many different clients
+that communicate with a central server to retrieve information about how to call
+other clients as well as the current status of the user's friends. The server 
+maintains a database used to authenticate each user upon starting the application.
+After logging into the system, the server is used as an intermediary for the clients
+to retrieve current information about the user's friends' statuses, hostname, and
+port number. This information can be used to request a chatting session with another
+client that is logged onto the server.  Fig.~\ref{fig:setup} shows a high-level
+network topology representation of what a set of clients logged into this chatting 
+application would look like.  The server and client subsystems are described in
+the following sections.
+
+\input{Server_spec_2}
+
+\input{Client_Section}
+
+\input{Evaluation_2}
+
+\section{Conclusion}
+\label{sec:concl}
+
+Overall, we found that UDP was the least affected by network congestion.  DCCP was not 
+significantly affected between 9Mbits/s and 10Mbits/s with regards to packet loss and 
+jitter.  Between DCCP and TCP, DCCP had a higher average packet loss 
+percentage than the other two protocols.  For jitter, DCCP had a larger percentage
+of packets clustering around the same jitter value where TCP had more varied jitter. 
+Overall, 
+we found the congestion contol system implemented in DCCP to behave similar to how TCP 
+behaves with a slightly higher packet loss percentage for DCCP. It was expected that 
+DCCP should behave similar to TCP since the congestion control is modelled after it. 
+Unexpectedly, DCCP didn't have a significant difference in packet loss as TCP did. 
+This may be attributed to our small network setup (2 computers) as well as testing 
+only on a local network.  When running over the internet, higher delays could 
+occur with an increased likelihood of lost packets due to many environment variables 
+introduced.  This should be a focus for future work.
+
+\balance
+\bibliography{references}
+\end{document}
