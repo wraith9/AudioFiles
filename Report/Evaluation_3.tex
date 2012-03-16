@@ -24,7 +24,7 @@ clients and servers on the lab workstations and configured the clients to
 generate the desired level of background traffic. Since both workstations were
 running iperf clients, this resulted in cross-traffic flowing between the two
 workstations. After initializing iperf, we started Wireshark captures on both of
-our laptops. We then initiated a call between our chat clients, let the call
+our machines. We then initiated a call between our chat clients, let the call
 continue for 30 seconds, then aborted the call and saved both Wireshark captures. We
 tested each protocol with the iperf clients sending 0, 9, and 10 Mbit/s of
 traffic, and each run was repeated a total of five times.
@@ -66,12 +66,12 @@ shown in Figures ~\ref{fig:avg_losses}, ~\ref{fig:dccp_losses},
 Unfortunately, our chat client proved unstable and crashed multiple times during
 our UDP test runs. In an attempt to work around the issue, we tried starting our
 Wireshark captures after initializing the voice call and the iperf clients. We
-did our best to synchronize the start of our captures, but a handful of our UDP
+tried to synchronize the start of our captures, but a handful of our UDP
 captures were nevertheless out of sync and yielded invalid loss data. This is
 why we have no packet loss data for UDP session 3 at 9 Mbit/s background
 traffic. We acknowledge this was hardly an ideal solution, but we were unable to
-troubleshoot the chat client effectively since William was largely unavailable
-during our project's final stages.
+troubleshoot the chat client effectively due to lack of time and one of our
+group being unavailable for later stages of testing.
 
 It is interesting to note that, on average, DCCP dropped approximately 5\% more
 packets at 9 Mbit/s of background traffic compared to 10 Mbit/s, whereas TCP and
@@ -124,7 +124,7 @@ demonstrated substantial variability in our tests with no background traffic.
 Session 5 in particular showed a transmission rate comparable to that observed
 during high congestion. However, since there was no other competing traffic on
 the network during these tests, we do not believe the DCCP protocol itself is
-responsible for this behavior. Rather, we believe the host laptop's operating
+responsible for this behavior. Rather, we believe the host machines' operating
 system or a bug in our chat program may have sometimes caused a lower packet
 volume.
 

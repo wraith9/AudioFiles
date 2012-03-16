@@ -83,17 +83,7 @@ DCCP was designed for this very purpose: to support congestion control where a l
 \label{fig:setup}
 \end{figure}
 
-The voice chatting application was designed to work with many different clients
-that communicate with a central server to retrieve information about how to call
-other clients as well as the current status of the user's friends. The server 
-maintains a database used to authenticate each user upon starting the application.
-After logging into the system, the server is used as an intermediary for the clients
-to retrieve current information about the user's friends' statuses, hostname, and
-port number. This information can be used to request a chatting session with another
-client that is logged onto the server.  Fig.~\ref{fig:setup} shows a high-level
-network topology representation of what a set of clients logged into this chatting 
-application would look like.  The server and client subsystems are described in
-the following sections.
+We designed our voice chatting application to work with many different clients at once. Each client communicates with a central server to retrieve information about calling other clients and to keep track of who it can actually call. The server maintains a database used to authenticate each user upon starting the application. After logging into the system, the server is used as an intermediary for the clients to retrieve current information about the user's friends' statuses, hostname, and port number. This information can be used to request a chatting session with another client that is logged onto the server.  Fig.~\ref{fig:setup} shows a high-level network topology representation of what a set of clients logged into this chatting application would look like.  The server and client subsystems are described in the following sections.
 
 \input{Server_spec_2}
 
@@ -104,20 +94,7 @@ the following sections.
 \section{Conclusion}
 \label{sec:concl}
 
-Overall, we found that UDP was the least affected by network congestion in terms of its sending rate.  DCCP was not 
-significantly affected between 9Mbits/s and 10Mbits/s with regards to packet loss and 
-jitter.  Between DCCP and TCP, DCCP had a higher average packet loss 
-percentage than the other two protocols.  For jitter, DCCP had a larger percentage
-of packets clustering around the same jitter value where TCP had more varied jitter. 
-Overall, 
-we found the congestion contol system implemented in DCCP to behave similar to how TCP 
-behaves with a slightly higher packet loss percentage for DCCP. It was expected that 
-DCCP should behave similar to TCP since the congestion control is modelled after it. 
-Unexpectedly, DCCP didn't have a significant difference in packet loss as TCP did. 
-This may be attributed to our small network setup (2 computers) as well as testing 
-only on a local network.  When running over the internet, higher delays could 
-occur with an increased likelihood of lost packets due to many environment variables 
-introduced.  This should be a focus for future work.
+We found that UDP was the least affected by network congestion in terms of its sending rate, while DCCP was not significantly affected between 9Mbits/s and 10Mbits/s with regards to packet loss and jitter.  Between DCCP and TCP, DCCP had a higher average packet loss percentage than the other two protocols. DCCP also had a lower amount of jitter over the congested network, whereas TCP had a higher amount of jitter. Our results suggest that the congestion contol system implemented in DCCP behaves similar to TCP's congestion control, except with a slightly higher packet loss percentage. This was expected, since the authors of DCCP modeled their congestion control algorithm closely to TCP's congestion control. An unexpected result we did find was that DCCP didn't have as large of a difference in packet loss as TCP. This may be attributed to our small network setup (2 computers) as well as testing only on a local network.  When running over the internet, higher delays could occur with an increased likelihood of lost packets due to many environment variables introduced.  This should be a focus for future work.
 
 \balance
 \bibliography{references}
