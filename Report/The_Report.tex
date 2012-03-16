@@ -51,79 +51,27 @@
 
 \begin{abstract}
 \boldmath 
-This paper aims to build a framework that utilizes the Data Congestion Control Protocol (DCCP) in order to experimentally test its congestion control system.  DCCP is a hybrid between TCP and UDP in that it offers congestion control across an unreliable transmission protocol along with a connection-oriented setup and teardown design. Applications that do not require a reliable connection, but desire to trasmit data at high rates are the ideal users of DCCP, i.e. audio streaming, video streaming, and video games. This paper proposes the design of an audio chatting application that has a framework capable of swapping out different transport layer protocols.  Specifically, three protocols were selected: DCCP, TCP, and UDP.  By abstracting out the transport layer at the application level, we can easily compare and contrast the differences in jitter and packet loss between the three different transport layer protocols in an audio streaming/chatting environment. We found that UDP was the least affected by network congestion.  DCCP was not significantly affected between 9Mbits/s and 10Mbits/s with regards to packet loss and jitter.  Between DCCP and TCP, we found DCCP having a higher average packet loss percentage than the other two protocols.  For jitter, DCCP had a steeper change in jitter over time where TCP had a more graduale increase in jitter over time. Overall, we found the congestion contol system implemented in DCCP to behave similar to how TCP behaves with a slightly more packet loss for DCCP.
+This paper aims to build a framework that utilizes the Data Congestion Control Protocol (DCCP) in order to experimentally test its congestion control system.  DCCP is a hybrid between TCP and UDP in that it offers congestion control across an unreliable transmission protocol along with a connection-oriented setup and teardown design. Applications that do not require a reliable connection, but desire to trasmit data at high rates are the ideal users of DCCP. Applications include audio streaming, video streaming, and video games. In this paper we propose the design of an audio chatting application that has a framework capable of swapping out different transport layer protocols in order to test the performance of DCCP. The three protocols used for out application are: DCCP, TCP, and UDP. By abstracting out the transport layer at the application level, we can easily compare and contrast the differences in jitter and packet loss between the three different transport layer protocols in an audio streaming/chatting environment. We found that UDP was the least affected by network congestion.  DCCP was not significantly affected between high link utilization and full link utilization with regards to our chosen metrics. Between DCCP and TCP, we found DCCP having a higher average packet loss percentage than the other two protocols.  For jitter, DCCP had a steeper change in jitter over time where TCP had a more graduale increase in jitter over time. Overall, we found the congestion contol system implemented in DCCP to behave similar to how TCP behaves with a slightly more packet loss for DCCP.
 
 \end{abstract}
 
 \section{Introduction}
 \label{sec:intro}
 
-Data Congestion Control Protocol (DCCP) is a transport layer protocol that
-implements congestion control over an unreliable network~\cite{kohler06}. 
-This protocol is a hybrid between UDP and TCP in that it contains the benefits
-of unreliability provided by UDP along with the congestion control system found in 
-TCP. DCCP originated due to the problem that occurs when transmitting data
-at high rates across a network with overloading background traffic. In this
-scenario, UDP will continue to transmit packets over the network, which will 
-likely be dropped and increase network congestion while TCP would increasingly
-slow down and continue to try and resend packets that may not be relevant by 
-the time they arrive at their destination such as in meadia streaming 
-applications.
+Data Congestion Control Protocol (DCCP) is a transport layer protocol that implements congestion control without the reliability of TCP~\cite{kohler06}. It contains the benefits of unreliability provided by UDP along with the congestion control system found in TCP. In essence, DCCP is a hybrid between UDP and TCP. The need for a protocol such as DCCP arose due to the need for congestion control for applications for which TCP is not an appropriate solution. Because UDP ignores packet performance when sending over the network it will simply send packets as fast as possible, generally resulting in a higher amount of lost data. By contrast, TCP will keep data integrity, but because packets may be retransmitted multiple times it is not very applicable for time-sensitive applications that rely on not being blocked when a packet gets dropped.
 
-DCCP is currently at the proposed standard RFC status (4340-4342).  It is 
-currently available for use through the linux socket library~\cite{dccp_website}.  
-Its main goal was "to give streaming UDP applications little reason
-not to switch to DCCP"~\cite{dccp_wg} by requiring as little overhead as 
-possible with full functionality.  The design of DCCP was geared mostly 
-toward media streaming applications which include audio, video, and gaming
-software where responsiveness is traded for a steadier, less bursty network
-connection.
+DCCP is currently at the proposed standard RFC status (4340-4342). It is available for use through the linux socket library~\cite{dccp_website}. Its main goal was "to give streaming UDP applications little reason not to switch to DCCP"~\cite{dccp_wg} by requiring as little overhead as possible with full functionality. The design of DCCP was geared mostly toward media streaming applications which include audio, video, and gaming software where responsiveness is traded for a steadier, less bursty network connection.
 
-The main goal of this paper is to evaluate DCCP's congestion control performance
-by implementing a voice chatting application with DCCP as the underlying audio
-transmission protocol.  The voice chatting framework was designed to allow the
-user, upon running the application, choose between DCCP, UDP, and TCP as the
-transport layer protocol of choice for transmitting audio packets. This is done
-by building a framework that abstracts out the transport layer protocol at the
-application layer. With this framework, we can observe differences in speed, 
-jitter, and packet loss.
-
+The main goal of this paper is to evaluate DCCP's congestion control performance by implementing a voice chatting application with DCCP as the underlying audio transmission protocol.  The voice chatting framework was designed to allow the user to choose between DCCP, UDP, and TCP as the transport layer protocol for transmitting audio packets between clients. This is done by building a framework that abstracts out the transport layer protocol at the application layer. With this framework, we can also observe differences in speed, jitter, and packet loss.
 
 \section{Background}
 \label{sec:backg}
 
-The most popular transport layer protocols in use are TCP and UDP.  Both of these
-protocols have their places in the networks realm and perform well under their 
-respective applications.  TCP is known mainly for it reliability along with its
-congestion control system while UDP favors timeliness over reliability.  With the
-increase in media streaming over the past decade, the idea of timeliness has
-become a very important feature.  We as humans, would rather compromise video
-quality for synchronized audio and video mainly due to our abilities to deduce
-information from segments of information.  Therefore, using a protocol such as UDP
-that doesn't worry about loosing a few packets over time is preferred for this type 
-of application.  However, when transmitting data that would be corrupt if pieces 
-were lost, a reliable protocol must be used to maintain file integrity.  TCP was
-designed for this very reason and is widely used as the standard reliable transport
-layer protocol.
+The most popular transport layer protocols in use today are TCP and UDP. Though other protocols do exist, these are the most commonly used ones, particularly throughout industry as a whole. TCP is known mainly for it reliability and its congestion control system while UDP is known mainly for its best effort approach that favors timeliness over reliability. The increase in media streaming over the past decade has greatly illustrated the need for efficiency of sending data without the reliability. UDP gives us the basic tool to do this. By streaming over an unreliable protocol and avoiding retransmissions, it is faster and easier for people to process. We can handle skips from time to time, but it's harder for us to handle consuming such media out of order. However, when transmitting data that requires file integrity, such as an archived tarball, a reliable protocol must be used. TCP was designed for this very reason and is widely used as the standard reliable transport layer protocol.
 
-Even though both of these protocols cover the two extremes: reliable and unreliable
-networks, at times a hybrid of the two is desireable.  A situation
-that may arise is when media streaming occurs on a congested network. 
-Congested networks cause extreme amounts of delay to TCP connections because of
-the increased packet loss and the recovery TCP takes to maintain its reliability. 
-So using TCP automatically is removed from the desireable options.  For
-UDP connections, we can see that there is no traffic speed limit to restrict the
-transmission rate UDP utilizes aside from the physical restrictions.  Therefore, 
-applications that use UDP actually
-may cause a network to become congested due to the high bursts that occur when
-trasmitting large blocks of data.  Streaming video with encoding is a good example 
-of applications that cause a varying datagram size, specifically MPEG's key frames
-verus incremental frames.
+Though TCP and UDP address many of the connections needs for various applications, there has been a growing need for an additional protocol. Let's consider what happens when we send data over a congested network. Because TCP has an aggressive back-off when it detects congestion and because it will attempt to retransmit packets (even over a congested network), it is not a suitable candidate for applications attempting to do media streaming. By contrast, UDP will send packets as fast as possible regardless of whether the network is congested or not, which could result in much more irregularity (and higher drops) in the arrival of packets for the receiver. Although these protocols have their ways of dealing with network congestion, they are not always the appropriate solution depending on typical network conditions and needs of the application.
 
-DCCP was designed for this very purpose: to support congestion control on an 
-unreliable network.  Not only do the authors of DCCP succesfully implement an 
-unreliable transport layer protocol with congestion control support, but it also 
-sheds light on the complexity of TCP.
+DCCP was designed for this very purpose: to support congestion control where a less reliable connection is sufficient. The authors of DCCP created the protocol with the primary goal of supporting congestion control without reliability, and in doing so discovered some of the complexities of TCP and how it is able to work so well.
 
 \section{Architecture}
 \label{sec:architec}
@@ -156,7 +104,7 @@ the following sections.
 \section{Conclusion}
 \label{sec:concl}
 
-Overall, we found that UDP was the least affected by network congestion.  DCCP was not 
+Overall, we found that UDP was the least affected by network congestion in terms of its sending rate.  DCCP was not 
 significantly affected between 9Mbits/s and 10Mbits/s with regards to packet loss and 
 jitter.  Between DCCP and TCP, DCCP had a higher average packet loss 
 percentage than the other two protocols.  For jitter, DCCP had a larger percentage
