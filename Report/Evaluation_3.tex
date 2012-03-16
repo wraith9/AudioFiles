@@ -154,7 +154,10 @@ volume.
 This section gives our jitter measurements for each protocol at each of our
 three background traffic levels. Each graph seen in Fig.~\ref{fig:jitter_graphs} is a CDF of our aggregated jitter
 measurements for each protocol and congestion level, convering all five
-individual sessions.
+individual sessions. Figures ~\ref{fig:jitter_detail_9} and
+~\ref{fig:jitter_detail_10} are CDF graphs for single protocols at each
+congestion level. These figures have reduced X scales in order to better show
+details of their jitter distributions.
 
 \begin{figure*}[!t]
    \centering
@@ -169,6 +172,36 @@ individual sessions.
       \includegraphics[width=0.45\textwidth]{pics/10mbs_jitter}}
    \caption{Jitter CDFs for three different extremes of background traffic.}
 \label{fig:jitter_graphs}
+\end{figure*}
+
+\begin{figure*}[!t]
+   \centering
+   \subfloat[DCCP.]{
+      \label{fig:dccp_9_jitter_closeup}
+      \includegraphics[width=0.45\textwidth]{pics/dccp_9_jitter_closeup}}
+   \subfloat[TCP.]{
+      \label{fig:tcp_9_jitter_closeup}
+      \includegraphics[width=0.45\textwidth]{pics/tcp_9_jitter_closeup}}
+  \\ \subfloat[UDP.]{
+      \label{fig:udp_9_jitter_closeup}
+      \includegraphics[width=0.45\textwidth]{pics/udp_9_jitter_closeup}}
+   \caption{Detailed jitter CDFs for 9 Mbit/s.}
+\label{fig:jitter_detail_9}
+\end{figure*}
+
+\begin{figure*}[!t]
+   \centering
+   \subfloat[DCCP.]{
+      \label{fig:dccp_10_jitter_closeup}
+      \includegraphics[width=0.45\textwidth]{pics/dccp_10_jitter_closeup}}
+   \subfloat[TCP.]{
+      \label{fig:tcp_10_jitter_closeup}
+      \includegraphics[width=0.45\textwidth]{pics/tcp_10_jitter_closeup}}
+  \\ \subfloat[UDP.]{
+      \label{fig:udp_10_jitter_closeup}
+      \includegraphics[width=0.45\textwidth]{pics/udp_10_jitter_closeup}}
+   \caption{Detailed jitter CDFs for 10 Mbit/s.}
+\label{fig:jitter_detail_10}
 \end{figure*}
 
 For TCP with no background traffic, we measured one jitter value of
