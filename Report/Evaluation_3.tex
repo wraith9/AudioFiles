@@ -74,14 +74,13 @@ troubleshoot the chat client effectively due to lack of time and one of our
 group being unavailable for later stages of testing.
 
 It is interesting to note that, on average, DCCP dropped approximately 5\% more
-packets at 9 Mbit/s of background traffic compared to 10 Mbit/s, whereas TCP and
-UDP lost more packets at 10 Mbit/s than at 9 Mbit/s. We believe this may be a
-result of DCCP's congestion control mechanism preemptively dropping packets in
-order to avoid further congestion.  In contrast, TCP's congestion control is
-primarily reactive (that is, it does not reduce its sending rate until the
-network is oversaturated). UDP does not implement congestion control, so it
-maintains its sending rate regardless of congestion, leading to proportionally
-more losses at higher congestion levels.
+packets at 9 Mbit/s of background traffic compared to 10 Mbit/s, whereas TCP
+lost more packets at 10 Mbit/s than at 9 Mbit/s. Our program uses DCCP's
+CCID2 congestion control mechanism, which is quite similar to TCP's congestion
+control, so we are not sure why the two protocols appeared to behave differently
+in this regard. Since this result seems counter-intuitive and the observed
+difference is small, we believe it is most likely due to another factor not
+under our control.
 
 \begin{figure}[!h]
    \centering
@@ -203,10 +202,6 @@ details of their jitter distributions.
    \caption{Detailed jitter CDFs for 10 Mbit/s.}
 \label{fig:jitter_detail_10}
 \end{figure*}
-
-For TCP with no background traffic, we measured one jitter value of
-approximately 5600 ms. Since no other data points were close to this outlier, we
-elected to omit it to improve the graph's readability.
 
 With no background traffic, all three protocols' jitter is concentrated at
 approximately 5 ms, although TCP's jitter appears less uniform than that of DCCP
