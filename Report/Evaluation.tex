@@ -31,9 +31,9 @@ generate the desired level of background traffic. Since both workstations were
 running iperf clients, this resulted in cross-traffic flowing between the two
 workstations. After initializing iperf, we started Wireshark captures on both of
 our laptops. We then initiated a call between our chat clients, let the call
-continue for 30s, then aborted the call and saved both Wireshark captures. We
-tested each protocol with the iperf clients sending 0, 9, and 10 Mbit/s of
-traffic, and each run was repeated a total of five times.
+continue for 30 seconds, then aborted the call and saved both Wireshark
+captures. We tested each protocol with the iperf clients sending 0, 9, and 10
+Mbit/s of traffic, and each run was repeated a total of five times.
 
 \subsection{Analysis Procedure}
 
@@ -42,11 +42,13 @@ during our experiments to determine how many packets were sent from one client
 and received by the other. Specifically, we did this by applying this display
 filter to both Wireshark traces from a particular session:\\
 
-\texttt{(dccp/tcp/udp) and ip.src == 192.168.2.5 and data.len == 1407}\\
+\texttt{(dccp|tcp|udp) and ip.src == 192.168.2.5 and data.len == 1407}\\
 
-This expression filtered out all packets except data packets that were sent from
-192.168.2.5, one of our laptops. For the trace recorded on 192.168.2.5, the
-number of displayed packets told us how many packets were sent from 192.168.2.5.
+For the first term, we used the name of the protocol being used by our chat
+program when the traces were captured. This expression filtered out all
+packets except data packets that were sent from 192.168.2.5, one of our laptops.
+For the trace recorded on 192.168.2.5, the number of displayed packets told us
+how many packets were sent from 192.168.2.5.
 Similarly, for the trace recorded on 192.168.2.4 (that is, the other chat
 client), only data packets received from 192.168.2.5 were displayed. We
 calculated the number of lost packets as the difference between these two
@@ -184,7 +186,7 @@ individual sessions.
 
 \begin{figure}[h]
    \centering
-      \includegraphics[width=0.45\textwidth]{pics/dccp_9_jitter}
+      \includegraphics[width=0.45\textwidth]{pics/dccp_9_jitter_new}
    \caption{DCCP jitter CDF for 9 Mbit/s.}
 \label{fig:dccp_9_jitter}
 \end{figure}
@@ -205,7 +207,7 @@ individual sessions.
 
 \begin{figure}[h]
    \centering
-      \includegraphics[width=0.45\textwidth]{pics/dccp_10_jitter}
+      \includegraphics[width=0.45\textwidth]{pics/dccp_10_jitter_new}
    \caption{DCCP jitter CDF for 10 Mbit/s.}
 \label{fig:dccp_10_jitter}
 \end{figure}
